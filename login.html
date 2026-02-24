@@ -377,12 +377,12 @@ async function ensureAdminExists() {
         body: JSON.stringify({
           id: 'admin-' + Date.now(),
           username: 'admin',
-          passwordHash: hash,
+          passwordhash: hash,
           name: '관리자',
           role: 'admin',
           active: true,
           deleted: false,
-          lastLoginAt: ''
+          lastloginat: ''
         })
       });
       console.log('✅ 초기 관리자 계정 생성 완료 (admin/admin1234)');
@@ -417,7 +417,7 @@ async function doAdminLogin(e) {
 
     let user = users.find(u =>
       u.username === username &&
-      u.passwordHash === hash &&
+      (u.passwordhash === hash || u.passwordHash === hash) &&
       u.active !== false &&
       !u.deleted
     );
@@ -429,9 +429,9 @@ async function doAdminLogin(e) {
         await fetch(_sbU('admin_users', `id=eq.${sameUser.id}`), {
           method: 'PATCH',
           headers: _sbH(),
-          body: JSON.stringify({ passwordHash: hash })
+          body: JSON.stringify({ passwordhash: hash })
         });
-        user = { ...sameUser, passwordHash: hash };
+        user = { ...sameUser, passwordhash: hash };
       }
     }
 
@@ -447,7 +447,7 @@ async function doAdminLogin(e) {
     fetch(_sbU('admin_users', `id=eq.${user.id}`), {
       method: 'PATCH',
       headers: _sbH(),
-      body: JSON.stringify({ lastLoginAt: new Date().toISOString() })
+      body: JSON.stringify({ lastloginat: new Date().toISOString() })
     }).catch(() => {});
 
     setAuthSession({ id: user.id, username: user.username, name: user.name, role: user.role });
@@ -491,18 +491,18 @@ async function doParticipantLogin(e) {
     const active = participants.filter(pt => !pt.deleted);
 
     // 1차: 정확 일치
-    let p = active.find(pt => pt.name === name && pt.birthDate === birthFormatted);
+    let p = active.find(pt => pt.name === name && (pt.birthDate||pt.birthdate) === birthFormatted);
     // 2차: 이름 공백 무시
     if (!p) {
       const cn = name.replace(/\s+/g,'');
-      p = active.find(pt => (pt.name||'').replace(/\s+/g,'') === cn && pt.birthDate === birthFormatted);
+      p = active.find(pt => (pt.name||'').replace(/\s+/g,'') === cn && (pt.birthDate||pt.birthdate) === birthFormatted);
     }
     // 3차: 생년월일 숫자만
     if (!p) {
       const cn = name.replace(/\s+/g,'');
       p = active.find(pt =>
         (pt.name||'').replace(/\s+/g,'') === cn &&
-        (pt.birthDate||'').replace(/[^\d]/g,'') === birth
+        ((pt.birthDate||pt.birthdate||'').replace(/[^\d]/g,'')) === birth
       );
     }
 
