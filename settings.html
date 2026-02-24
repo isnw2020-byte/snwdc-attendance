@@ -359,7 +359,7 @@ async function changePassword() {
       headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
     });
     const users = await res.json();
-    const me = users.find(u => u.id === adminSession.id && u.passwordHash === currentHash);
+    const me = users.find(u => u.id === adminSession.id && (u.passwordhash === currentHash || u.passwordHash === currentHash));
 
     if (!me) { showToast('현재 비밀번호가 올바르지 않습니다.', 'error'); return; }
 
@@ -367,7 +367,7 @@ async function changePassword() {
     await fetch(`${SUPABASE_URL}/rest/v1/admin_users?id=eq.${me.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}`, 'Prefer': 'return=representation' },
-      body: JSON.stringify({ passwordHash: newHash })
+      body: JSON.stringify({ passwordhash: newHash })
     });
 
     await writeAuditLog({
@@ -404,7 +404,7 @@ async function loadAdmins() {
       <td>${escapeHtml(u.name || '')}</td>
       <td><span class="badge badge-${u.role === 'admin' ? 'primary' : 'secondary'}">${u.role === 'admin' ? '관리자' : '담당자'}</span></td>
       <td><span class="badge badge-${u.active !== false ? 'success' : 'danger'}">${u.active !== false ? '활성' : '비활성'}</span></td>
-      <td style="font-size:11px;color:#94a3b8;">${u.lastLoginAt ? u.lastLoginAt.substring(0,16).replace('T',' ') : '-'}</td>
+      <td style="font-size:11px;color:#94a3b8;">${(u.lastloginat||u.lastLoginAt) ? (u.lastloginat||u.lastLoginAt).substring(0,16).replace('T',' ') : '-'}</td>
       <td>
         ${u.id !== adminSession.id ? `
         <button class="btn btn-secondary btn-sm" onclick="toggleActive('${u.id}', ${u.active !== false})">
@@ -433,7 +433,7 @@ async function addAdminAccount() {
   try {
     const hash = await sha256(pw);
     await apiPost('admin_users', {
-      id: generateUUID(), username, passwordHash: hash, name, role, active: true, lastLoginAt: ''
+      id: generateUUID(), username, passwordhash: hash, name, role, active: true, lastloginat: ''
     });
     showToast(`${name} 계정이 생성되었습니다.`, 'success');
     closeModal('addAdminModal');
