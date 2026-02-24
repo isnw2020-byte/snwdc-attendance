@@ -634,7 +634,11 @@ async function apiGetById(table, id) {
  */
 async function apiPost(table, data) {
   const now = new Date().toISOString();
-  const payload = _toSnake({ ...data, created_at: data.created_at || now, updated_at: data.updated_at || now });
+  // attendance_events는 updated_at 컬럼 없음 → 제외
+  const noUpdatedAt = ['attendance_events'];
+  const base = { ...data, created_at: data.created_at || now };
+  if (!noUpdatedAt.includes(table)) base.updated_at = data.updated_at || now;
+  const payload = _toSnake(base);
   const res = await fetch(_sbUrl(table), {
     method: 'POST',
     headers: _sbHeaders(),
