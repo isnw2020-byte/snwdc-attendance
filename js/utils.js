@@ -1,4 +1,3 @@
-
 /**
  * 성남여성인력개발센터 직업교육훈련 출결 시스템
  * Core Utility Functions
@@ -477,6 +476,101 @@ async function writeAuditLog({ actorId, actorName, action, entityType, entityId,
 }
 
 // ============================================================
+// Supabase 필드명 변환 (camelCase ↔ lowercase)
+// Supabase는 컬럼명을 소문자로만 저장합니다.
+// JS 코드는 camelCase를 사용하므로, API 레이어에서 자동 변환합니다.
+// ============================================================
+
+/** camelCase → 소문자 매핑 테이블 */
+const _CAMEL_TO_LOWER = {
+  birthDate: 'birthdate',
+  startDate: 'startdate',
+  endDate: 'enddate',
+  startTime: 'starttime',
+  dailyMinutes: 'dailyminutes',
+  lateGraceMinutes: 'lategraceminutes',
+  earlyGraceMinutes: 'earlygraceminutes',
+  recognitionRate: 'recognitionrate',
+  completionRate: 'completionrate',
+  complexWeight: 'complexweight',
+  unitPeriodDays: 'unitperioddays',
+  maxParticipants: 'maxparticipants',
+  startDateTime: 'startdatetime',
+  endDateTime: 'enddatetime',
+  sessionNo: 'sessionno',
+  isCancelled: 'iscancelled',
+  isInactive: 'isinactive',
+  isHolidayExcluded: 'isholidayexcluded',
+  participantId: 'participantid',
+  courseId: 'courseid',
+  sessionId: 'sessionid',
+  checkInAt: 'checkinat',
+  checkOutAt: 'checkoutat',
+  statusCode: 'statuscode',
+  attendedMinutes: 'attendedminutes',
+  isRecognized: 'isrecognized',
+  manuallyAdjusted: 'manuallyadjusted',
+  adjustReason: 'adjustreason',
+  finalizedBy: 'finalizedby',
+  finalizedAt: 'finalizedat',
+  passwordHash: 'passwordhash',
+  lastLoginAt: 'lastloginat',
+  qrTokenId: 'qrtokenid',
+  locationValid: 'locationvalid',
+  gpsAccuracy: 'gpsaccuracy',
+  gpsLat: 'gpslat',
+  gpsLng: 'gpslng',
+  eventType: 'eventtype',
+  attendanceRecordId: 'attendancerecordid',
+  actorId: 'actorid',
+  actorName: 'actorname',
+  entityType: 'entitytype',
+  entityId: 'entityid',
+  beforeJson: 'beforejson',
+  afterJson: 'afterjson',
+  createdAt: 'createdat',
+  expiresAt: 'expiresat',
+  deviceInfo: 'deviceinfo',
+  cancelReason: 'cancelreason',
+  enrolledAt: 'enrolledat',
+  completedAt: 'completedat',
+  unitPeriod: 'unitperiod',
+};
+
+/** 소문자 → camelCase 역방향 맵 (자동 생성) */
+const _LOWER_TO_CAMEL = {};
+for (const [camel, lower] of Object.entries(_CAMEL_TO_LOWER)) {
+  _LOWER_TO_CAMEL[lower] = camel;
+}
+
+/**
+ * 객체의 키를 camelCase → 소문자로 변환 (보낼 때)
+ */
+function _toSnake(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+  const result = {};
+  for (const [k, v] of Object.entries(obj)) {
+    const newKey = _CAMEL_TO_LOWER[k] || k;
+    result[newKey] = v;
+  }
+  return result;
+}
+
+/**
+ * 객체 또는 배열의 키를 소문자 → camelCase로 변환 (받을 때)
+ */
+function _toCamel(data) {
+  if (Array.isArray(data)) return data.map(_toCamel);
+  if (!data || typeof data !== 'object') return data;
+  const result = {};
+  for (const [k, v] of Object.entries(data)) {
+    const newKey = _LOWER_TO_CAMEL[k] || k;
+    result[newKey] = v;
+  }
+  return result;
+}
+
+// ============================================================
 // Supabase REST API Helpers
 // ============================================================
 
@@ -505,8 +599,11 @@ async function apiGet(table, params = {}) {
   let parts = [`limit=${limit}`, `offset=${offset}`];
   if (sort) parts.push(`order=${sort}`);
   Object.entries(filters).forEach(([k, v]) => {
-    if (v !== undefined && v !== null && v !== '')
-      parts.push(`${k}=eq.${encodeURIComponent(v)}`);
+    if (v !== undefined && v !== null && v !== '') {
+      // 필터 키도 소문자로 변환
+      const sbKey = _CAMEL_TO_LOWER[k] || k;
+      parts.push(`${sbKey}=eq.${encodeURIComponent(v)}`);
+    }
   });
   const res = await fetch(_sbUrl(table, parts.join('&')), {
     headers: { ..._sbHeaders(), 'Prefer': 'count=exact' }
@@ -514,7 +611,8 @@ async function apiGet(table, params = {}) {
   if (!res.ok) throw new Error(`API GET ${table} 실패: ${res.status}`);
   const data = await res.json();
   const total = parseInt(res.headers.get('content-range')?.split('/')[1] || (data.length || 0));
-  return { data: Array.isArray(data) ? data : [], total, page, limit };
+  const converted = Array.isArray(data) ? _toCamel(data) : [];
+  return { data: converted, total, page, limit };
 }
 
 /**
@@ -527,7 +625,8 @@ async function apiGetById(table, id) {
   });
   if (!res.ok) return null;
   const data = await res.json();
-  return Array.isArray(data) ? (data[0] || null) : data;
+  const raw = Array.isArray(data) ? (data[0] || null) : data;
+  return raw ? _toCamel(raw) : null;
 }
 
 /**
@@ -535,7 +634,7 @@ async function apiGetById(table, id) {
  */
 async function apiPost(table, data) {
   const now = new Date().toISOString();
-  const payload = { ...data, created_at: data.created_at || now, updated_at: data.updated_at || now };
+  const payload = _toSnake({ ...data, created_at: data.created_at || now, updated_at: data.updated_at || now });
   const res = await fetch(_sbUrl(table), {
     method: 'POST',
     headers: _sbHeaders(),
@@ -546,14 +645,15 @@ async function apiPost(table, data) {
     throw new Error(`API POST ${table} 실패: ${res.status} - ${err}`);
   }
   const result = await res.json();
-  return Array.isArray(result) ? result[0] : result;
+  const raw = Array.isArray(result) ? result[0] : result;
+  return raw ? _toCamel(raw) : raw;
 }
 
 /**
  * PUT - 전체 업데이트
  */
 async function apiPut(table, id, data) {
-  const payload = { ...data, updated_at: new Date().toISOString() };
+  const payload = _toSnake({ ...data, updated_at: new Date().toISOString() });
   const res = await fetch(_sbUrl(table, `id=eq.${encodeURIComponent(id)}`), {
     method: 'PUT',
     headers: _sbHeaders(),
@@ -564,14 +664,15 @@ async function apiPut(table, id, data) {
     throw new Error(`API PUT ${table}/${id} 실패: ${res.status} - ${err}`);
   }
   const result = await res.json();
-  return Array.isArray(result) ? result[0] : result;
+  const raw = Array.isArray(result) ? result[0] : result;
+  return raw ? _toCamel(raw) : raw;
 }
 
 /**
  * PATCH - 부분 업데이트
  */
 async function apiPatch(table, id, data) {
-  const payload = { ...data, updated_at: new Date().toISOString() };
+  const payload = _toSnake({ ...data, updated_at: new Date().toISOString() });
   const res = await fetch(_sbUrl(table, `id=eq.${encodeURIComponent(id)}`), {
     method: 'PATCH',
     headers: _sbHeaders(),
@@ -582,7 +683,8 @@ async function apiPatch(table, id, data) {
     throw new Error(`API PATCH ${table}/${id} 실패: ${res.status} - ${err}`);
   }
   const result = await res.json();
-  return Array.isArray(result) ? result[0] : result;
+  const raw = Array.isArray(result) ? result[0] : result;
+  return raw ? _toCamel(raw) : raw;
 }
 
 /**
@@ -597,6 +699,7 @@ async function apiDelete(table, id) {
   return res.ok;
 }
 
+
 /**
  * 테이블 전체 데이터 가져오기 (페이지네이션 자동 처리)
  * Supabase는 최대 1000건씩
@@ -610,8 +713,10 @@ async function apiGetAll(table, extraParams = {}) {
   for (let i = 0; i < MAX_ITER; i++) {
     const parts = [`limit=${PAGE}`, `offset=${offset}`];
     Object.entries(extraParams).forEach(([k, v]) => {
-      if (k !== 'limit' && k !== 'page' && v !== undefined && v !== null && v !== '')
-        parts.push(`${k}=eq.${encodeURIComponent(v)}`);
+      if (k !== 'limit' && k !== 'page' && v !== undefined && v !== null && v !== '') {
+        const sbKey = _CAMEL_TO_LOWER[k] || k;
+        parts.push(`${sbKey}=eq.${encodeURIComponent(v)}`);
+      }
     });
 
     let res;
@@ -631,7 +736,7 @@ async function apiGetAll(table, extraParams = {}) {
     const rows = await res.json();
     if (!Array.isArray(rows) || rows.length === 0) break;
 
-    all = all.concat(rows);
+    all = all.concat(_toCamel(rows));
 
     const contentRange = res.headers.get('content-range');
     const total = contentRange ? parseInt(contentRange.split('/')[1]) : null;
