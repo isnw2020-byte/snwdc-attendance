@@ -269,29 +269,7 @@
     .r-progress-bar { height: 100%; background: var(--primary); animation: shrink 8s linear forwards; }
     @keyframes shrink { from { width: 100%; } to { width: 0; } }
 
-    /* ━━━━━━━ 수동 입력 탭 ━━━━━━━ */
-    #manualView { padding: 20px 16px; display: none; flex-direction: column; gap: 12px; flex: 1; }
-    .manual-icon {
-      text-align: center; padding: 16px 0 4px;
-    }
-    .manual-icon i { font-size: 44px; color: #cbd5e1; }
-    .manual-icon p { font-size: 12px; color: #94a3b8; margin-top: 8px; line-height: 1.6; }
-    .form-lbl { font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 5px; display: block; }
-    .form-inp {
-      width: 100%; padding: 12px 14px;
-      border: 1.5px solid #e2e8f0; border-radius: 10px;
-      font-size: 14px; font-family: inherit; color: #1e293b;
-      outline: none; transition: border-color .2s;
-    }
-    .form-inp:focus { border-color: var(--primary); }
-    .btn-submit {
-      width: 100%; padding: 15px; border: none; border-radius: 12px;
-      background: var(--primary); color: white;
-      font-size: 15px; font-weight: 800; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      box-shadow: 0 4px 14px rgba(30,58,138,.4); font-family: inherit;
-    }
-    .btn-submit:active { transform: scale(.98); }
+    /* 수동 입력 탭 제거됨 */
 
     /* ━━━━━━━ 오늘 현황 ━━━━━━━ */
     .today-section {
@@ -398,12 +376,7 @@
   <!-- 메인 카드 -->
   <div class="main-card">
 
-    <!-- 탭 (QR 스캔만 표시) -->
-    <div class="tab-bar" style="display:none;" id="tabBar">
-      <button class="tab-btn active" id="tabScan"   onclick="switchTab('scan')">
-        <i class="fa fa-camera"></i> QR 스캔
-      </button>
-    </div>
+    <!-- 탭 바 (단일 탭 - 표시 불필요) -->
 
     <!-- ── 스캔 탭 ── -->
     <div id="scanView">
@@ -455,10 +428,7 @@
       <div class="result-wrap" id="resultWrap" style="display:none;"></div>
     </div>
 
-    <!-- ── 수동 입력 탭 (숨김 - 사용 안 함) ── -->
-    <div id="manualView" style="display:none;">
-      <div id="manualResult" style="display:none;"></div>
-    </div>
+
 
     <!-- 오늘 현황 -->
     <div class="today-section" id="todaySection" style="display:none;">
@@ -504,7 +474,7 @@ let torchTrack      = null;
 let torchOn         = false;
 let scanLoopId      = null;
 let processingQR    = false;
-let currentTab      = 'scan';
+const currentTab    = 'scan';
 let resultClearTimer = null;
 
 // ════════════════════════════════════════════════════════════
@@ -613,15 +583,11 @@ function setGPS(state, msg) {
 }
 
 // ════════════════════════════════════════════════════════════
-// 탭 전환
+// 탭 전환 (수기 입력 탭 제거 - QR 스캔만 사용)
 // ════════════════════════════════════════════════════════════
 function switchTab(tab) {
-  currentTab = tab;
-  document.getElementById('tabScan').classList.toggle('active',   tab === 'scan');
-  document.getElementById('tabManual').classList.toggle('active', tab === 'manual');
-  document.getElementById('scanView').style.display   = tab === 'scan'   ? 'flex' : 'none';
-  document.getElementById('manualView').style.display = tab === 'manual' ? 'flex' : 'none';
-  if (tab !== 'scan') stopCamera();
+  currentTab = 'scan';
+  document.getElementById('scanView').style.display = 'flex';
 }
 
 // ════════════════════════════════════════════════════════════
@@ -783,20 +749,7 @@ async function toggleTorch() {
   } catch { torchOn = false; }
 }
 
-// ════════════════════════════════════════════════════════════
-// 수동 입력
-// ════════════════════════════════════════════════════════════
-async function processManual() {
-  const val = document.getElementById('manualInput').value.trim();
-  if (!val) { showToastMsg('URL 또는 토큰을 입력하세요', 2000); return; }
-
-  // 수동 결과 영역 초기화
-  const mr = document.getElementById('manualResult');
-  mr.style.display = 'none';
-  mr.innerHTML = '';
-
-  await processQRUrl(val, true /* isManual */);
-}
+// 수기 입력 기능 제거됨
 
 // ════════════════════════════════════════════════════════════
 // ── 핵심: QR 출결 처리 ──
@@ -1034,9 +987,7 @@ async function processQRUrl(urlOrToken, isManual = false) {
 // 결과 표시 헬퍼
 // ════════════════════════════════════════════════════════════
 function getResultContainer(target) {
-  return target === 'manual'
-    ? document.getElementById('manualResult')
-    : document.getElementById('resultWrap');
+  return document.getElementById('resultWrap');
 }
 
 function showLoading(target) {
