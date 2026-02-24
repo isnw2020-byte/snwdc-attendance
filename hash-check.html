@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"/><title>Hash Check</title></head>
+<body>
+<div id="result" style="font-family:monospace;padding:20px;font-size:16px;"></div>
+<script>
+async function check() {
+  const passwords = ['admin', 'admin1234', 'Admin1234', '1234'];
+  const div = document.getElementById('result');
+  div.innerHTML = '<h3>SHA-256 해시 계산 결과</h3>';
+  
+  for (const pw of passwords) {
+    const msgBuffer = new TextEncoder().encode(pw);
+    const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    div.innerHTML += `<p><strong>${pw}</strong>: <code>${hash}</code></p>`;
+  }
+  
+  // Currently stored hash
+  div.innerHTML += '<hr/><p>DB에 저장된 해시: <code>8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918</code></p>';
+  div.innerHTML += '<p>위 저장된 해시 = "admin"의 SHA-256</p>';
+}
+check();
+</script>
+</body>
+</html>

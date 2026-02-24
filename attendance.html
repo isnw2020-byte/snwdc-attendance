@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>출결 현황 - 성남여성인력개발센터 출결시스템</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <style>
+    .att-wrap { overflow-x: auto; }
+    .att-main-table { font-size: 11px; border-collapse: collapse; white-space: nowrap; }
+    .att-main-table th, .att-main-table td { border: 1px solid #e2e8f0; padding: 5px 7px; text-align: center; }
+    .att-main-table thead tr:first-child th { background: #1e3a8a; color: white; font-size: 10px; }
+    .att-main-table thead tr:nth-child(2) th { background: #f8fafc; font-size: 10px; font-weight: 700; }
+    .att-main-table tbody td.col-sticky { position: sticky; background: white; z-index: 2; text-align: left; }
+    .att-main-table tbody td.col-sticky-1 { left: 0; min-width: 72px; }
+    .att-main-table tbody td.col-sticky-2 { left: 72px; min-width: 86px; }
+    .att-main-table thead th.col-sticky { position: sticky; background: #f8fafc !important; z-index: 3; }
+    .att-main-table thead th.col-sticky-1 { left: 0; background: #1e3a8a !important; z-index: 4; }
+    .att-main-table thead th.col-sticky-2 { left: 72px; background: #1e3a8a !important; z-index: 4; }
+    .att-main-table tbody tr:hover td { background: #fafbff; }
+    .att-main-table tbody tr:hover td.col-sticky { background: #f0f5ff; }
+    .att-main-table .sum-row { background: #f8fafc; font-weight: 700; }
+    .att-main-table .holiday-col { background: #fff5f5; }
+    .att-main-table .cancelled-col { background: #f8fafc; opacity: .6; }
+    .att-main-table .pass-cell { color: #16a34a; font-weight: 800; }
+    .att-main-table .fail-cell { color: #dc2626; font-weight: 700; }
+    .period-selector { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .participant-detail-row { background: #f8fafc; }
+    .stat-mini { font-size: 10px; color: #64748b; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><span>🏫</span></div>
+      <div><div class="logo-text">성남여성인력개발센터</div><div class="logo-sub">출결관리시스템</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">메인</div>
+      <a href="index.html" class="nav-item"><i class="fa fa-home"></i> 대시보드</a>
+      <a href="courses.html" class="nav-item"><i class="fa fa-book"></i> 과정 관리</a>
+      <a href="participants.html" class="nav-item"><i class="fa fa-users"></i> 참여자 관리</a>
+      <div class="nav-section">출결</div>
+      <a href="qr-admin.html" class="nav-item"><i class="fa fa-qrcode"></i> QR 코드 발급</a>
+      <a href="attendance.html" class="nav-item active"><i class="fa fa-calendar-check"></i> 출결 현황</a>
+      <div class="nav-section">보고서</div>
+      <a href="report.html" class="nav-item"><i class="fa fa-chart-bar"></i> 리포트/다운로드</a>
+      <a href="audit-log.html" class="nav-item"><i class="fa fa-history"></i> 감사 로그</a>
+      <div class="nav-section">시스템</div>
+      <a href="settings.html" class="nav-item"><i class="fa fa-cog"></i> 시스템 설정</a>
+      <a href="holidays.html" class="nav-item"><i class="fa fa-calendar-xmark"></i> 공휴일 관리</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="sidebarUser" style="margin-bottom:8px;font-weight:600;"></div>
+      <a href="#" onclick="doLogout()" style="color:rgba(255,255,255,.6);font-size:11px;"><i class="fa fa-sign-out-alt"></i> 로그아웃</a>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="top-header">
+      <span class="page-title"><i class="fa fa-calendar-check" style="color:#1e3a8a;"></i> 출결 현황</span>
+      <div class="header-actions">
+        <button class="btn btn-success btn-sm" onclick="exportExcel()"><i class="fa fa-file-excel"></i> 엑셀</button>
+        <button class="btn btn-secondary btn-sm" onclick="window.print()"><i class="fa fa-print"></i> 인쇄</button>
+      </div>
+    </header>
+
+    <main class="page-body fade-in">
+      <!-- Course Selector & Period Filter -->
+      <div class="card mb-4" style="margin-bottom:16px;">
+        <div class="card-body" style="padding:16px;">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+            <div class="form-group" style="flex:1;min-width:200px;">
+              <label class="form-label">과정 선택</label>
+              <select id="courseSelect" class="form-control" onchange="onCourseChange()">
+                <option value="">-- 과정 선택 --</option>
+              </select>
+            </div>
+            <div class="form-group" style="width:120px;">
+              <label class="form-label">보기 방식</label>
+              <select id="viewMode" class="form-control" onchange="renderAttendance()">
+                <option value="all">전체</option>
+                <option value="month">월별</option>
+                <option value="unit">단위기간</option>
+                <option value="custom">기간 직접</option>
+              </select>
+            </div>
+            <div id="monthFilter" style="display:none;" class="form-group">
+              <label class="form-label">월 선택</label>
+              <select id="monthSelect" class="form-control" onchange="renderAttendance()"></select>
+            </div>
+            <div id="unitFilter" style="display:none;" class="form-group">
+              <label class="form-label">단위기간</label>
+              <select id="unitSelect" class="form-control" onchange="renderAttendance()"></select>
+            </div>
+            <div id="customFilter" style="display:none;gap:8px;align-items:flex-end;" class="flex">
+              <div class="form-group">
+                <label class="form-label">시작일</label>
+                <input type="date" id="customStart" class="form-control"/>
+              </div>
+              <div class="form-group">
+                <label class="form-label">종료일</label>
+                <input type="date" id="customEnd" class="form-control"/>
+              </div>
+              <button class="btn btn-primary" onclick="renderAttendance()"><i class="fa fa-search"></i> 조회</button>
+            </div>
+            <div class="form-group">
+              <label class="form-label">미완료(?)</label>
+              <select id="incompleteMode" class="form-control" style="width:120px;" onchange="renderAttendance()">
+                <option value="exclude">미확정 제외</option>
+                <option value="include">포함(결석처리)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Summary -->
+      <div id="summarySection" style="display:none;margin-bottom:16px;">
+        <div class="stats-grid" id="attStats" style="margin-bottom:0;"></div>
+      </div>
+
+      <!-- Attendance Table -->
+      <div class="card">
+        <div class="card-header">
+          <i class="fa fa-table" style="color:#1e3a8a;"></i>
+          <h3 id="attTableTitle">출석부</h3>
+          <div style="margin-left:auto;display:flex;gap:8px;">
+            <span id="attPeriodLabel" class="badge badge-primary"></span>
+          </div>
+        </div>
+        <div class="att-wrap" id="attTableWrap">
+          <div class="empty-state">
+            <i class="fa fa-calendar-check"></i>
+            <p>과정을 선택하면 출석부가 표시됩니다.</p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Attendance Edit Modal -->
+<div class="modal-overlay" id="attEditModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="attEditTitle">출결 수정</h3>
+      <button class="modal-close" onclick="closeModal('attEditModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="attEditInfo" style="padding:12px;background:#f8fafc;border-radius:8px;margin-bottom:16px;font-size:13px;"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">입실 시간</label>
+          <input type="datetime-local" id="editCheckIn" class="form-control"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">퇴실 시간</label>
+          <input type="datetime-local" id="editCheckOut" class="form-control"/>
+          <span class="form-hint">미입력 시 미완료(?) 상태</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">수정 사유 <span style="color:#ef4444;">*</span></label>
+        <input type="text" id="editReason" class="form-control" placeholder="수정 사유를 반드시 입력하세요 (감사로그 기록)"/>
+      </div>
+      <div id="attEditPreview" style="margin-top:12px;padding:12px;background:#eff6ff;border-radius:8px;font-size:12px;display:none;">
+        <strong>판정 미리보기:</strong> <span id="previewStatus"></span>
+        <span id="previewMinutes"></span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('attEditModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveAttEdit()"><i class="fa fa-save"></i> 저장 (감사로그 기록)</button>
+    </div>
+  </div>
+</div>
+
+<!-- Participant Detail Modal -->
+<div class="modal-overlay" id="participantModal">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <h3 id="participantModalTitle">참여자 출결 상세</h3>
+      <button class="modal-close" onclick="closeModal('participantModal')">✕</button>
+    </div>
+    <div class="modal-body" id="participantModalBody">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-success" onclick="exportParticipantExcel()"><i class="fa fa-file-excel"></i> 개인 출석부 다운로드</button>
+      <button class="btn btn-secondary" onclick="closeModal('participantModal')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script>
+const adminSession = requireAuth();
+if (!adminSession) throw new Error();
+document.getElementById('sidebarUser').textContent = `${adminSession.name} (관리자)`;
+
+let currentCourse = null, sessions = [], participants = [], enrollments = [], records = [];
+let filteredSessions = [];
+let currentEditRecord = null, currentEditSession = null, currentEditParticipant = null;
+let currentParticipantDetail = null;
+let allCourses = [];
+
+function doLogout() { if (confirm('로그아웃?')) { clearAuthSession(); window.location.href='login.html'; } }
+
+// ===== Init =====
+async function init() {
+  allCourses = (await apiGetAll('courses')).filter(c => !c.deleted);
+  const sel = document.getElementById('courseSelect');
+  allCourses.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.id; o.textContent = `${c.name} (${c.startDate}~${c.endDate})`;
+    sel.appendChild(o);
+  });
+
+  // URL param
+  const params = new URLSearchParams(window.location.search);
+  const cid = params.get('courseId');
+  const pid = params.get('participantId');
+  if (cid) {
+    sel.value = cid;
+    await onCourseChange();
+    if (pid) showParticipantDetail(pid);
+  }
+}
+
+async function onCourseChange() {
+  const courseId = document.getElementById('courseSelect').value;
+  if (!courseId) return;
+  currentCourse = allCourses.find(c => c.id === courseId);
+  if (!currentCourse) return;
+
+  document.getElementById('attTableTitle').textContent = `출석부 - ${currentCourse.name}`;
+
+  // Load data
+  const [sAll, eAll, aAll] = await Promise.all([
+    apiGetAll('sessions'),
+    apiGetAll('enrollments'),
+    apiGetAll('attendance_records')
+  ]);
+
+  sessions = sAll.filter(s => s.courseId === courseId).sort((a,b) => a.date.localeCompare(b.date));
+  enrollments = eAll.filter(e => e.courseId === courseId && !e.deleted);
+  records = aAll.filter(r => r.courseId === courseId);
+
+  // Load participants
+  const allP = await apiGetAll('participants');
+  participants = enrollments.map(e => ({
+    ...allP.find(p => p.id === e.participantId),
+    enrollStatus: e.status
+  })).filter(p => p && p.id);
+
+  // Populate filters
+  populateFilters();
+  renderAttendance();
+}
+
+function populateFilters() {
+  const months = [...new Set(sessions.filter(s => !s.isInactive && !s.isCancelled).map(s => s.date.substring(0,7)))].sort();
+  const mSel = document.getElementById('monthSelect');
+  mSel.innerHTML = months.map(m => `<option value="${m}">${m}</option>`).join('');
+
+  const c = currentCourse;
+  const unitSize = c.unitPeriodDays || 20;
+  const activeSess = sessions.filter(s => !s.isInactive && !s.isCancelled);
+  const uSel = document.getElementById('unitSelect');
+  uSel.innerHTML = '';
+  for (let i = 0; i < activeSess.length; i += unitSize) {
+    const end = Math.min(i + unitSize - 1, activeSess.length - 1);
+    uSel.innerHTML += `<option value="${i}">${Math.floor(i/unitSize)+1}단위기간 (${activeSess[i].date}~${activeSess[end].date})</option>`;
+  }
+}
+
+function renderAttendance() {
+  const mode = document.getElementById('viewMode').value;
+  const c = currentCourse;
+  if (!c) return;
+
+  document.getElementById('monthFilter').style.display = mode === 'month' ? 'block' : 'none';
+  document.getElementById('unitFilter').style.display = mode === 'unit' ? 'block' : 'none';
+  document.getElementById('customFilter').style.display = mode === 'custom' ? 'flex' : 'none';
+
+  const activeSess = sessions.filter(s => !s.isInactive);
+  let filtered = activeSess;
+
+  if (mode === 'month') {
+    const m = document.getElementById('monthSelect').value;
+    filtered = activeSess.filter(s => s.date.startsWith(m));
+    document.getElementById('attPeriodLabel').textContent = m;
+  } else if (mode === 'unit') {
+    const startIdx = parseInt(document.getElementById('unitSelect').value);
+    const unitSize = c.unitPeriodDays || 20;
+    const unitActive = activeSess.filter(s => !s.isCancelled);
+    const uSessions = unitActive.slice(startIdx, startIdx + unitSize);
+    filtered = activeSess.filter(s => uSessions.some(u => u.id === s.id));
+    const pNo = Math.floor(startIdx / unitSize) + 1;
+    document.getElementById('attPeriodLabel').textContent = `${pNo}단위기간`;
+  } else if (mode === 'custom') {
+    const start = document.getElementById('customStart').value;
+    const end = document.getElementById('customEnd').value;
+    if (start && end) {
+      filtered = activeSess.filter(s => s.date >= start && s.date <= end);
+      document.getElementById('attPeriodLabel').textContent = `${start}~${end}`;
+    }
+  } else {
+    document.getElementById('attPeriodLabel').textContent = '전체';
+  }
+
+  filteredSessions = filtered;
+  buildTable(filtered);
+  buildSummary(filtered);
+}
+
+function buildSummary(filteredSess) {
+  const section = document.getElementById('summarySection');
+  const statsEl = document.getElementById('attStats');
+  if (!participants.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+
+  const activeSess = filteredSess.filter(s => !s.isCancelled);
+  const totalSessions = activeSess.length;
+  const incMode = document.getElementById('incompleteMode').value;
+  const c = currentCourse;
+
+  let totalRecognized = 0, totalAbsence = 0, totalIncomplete = 0, passCount = 0;
+  participants.forEach(p => {
+    const pRecords = getFilteredRecords(p.id, activeSess, incMode);
+    const summary = calcAttendanceSummary(pRecords, totalSessions, {
+      complexWeight: c.complexWeight || 2, completionRate: c.completionRate || 0.8
+    });
+    totalRecognized += summary.recognized;
+    totalAbsence += summary.absenceTotal;
+    totalIncomplete += summary.incomplete;
+    if (summary.isCompleted) passCount++;
+  });
+
+  const avgRate = participants.length > 0
+    ? (totalRecognized / (participants.length * totalSessions) * 100).toFixed(1) : 0;
+
+  statsEl.innerHTML = `
+    <div class="stat-card"><div class="stat-icon" style="background:#eff6ff;"><i class="fa fa-calendar" style="color:#1e3a8a;"></i></div>
+      <div class="stat-label">총 교육회차</div><div class="stat-value">${totalSessions}</div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#dcfce7;"><i class="fa fa-users" style="color:#16a34a;"></i></div>
+      <div class="stat-label">수강인원</div><div class="stat-value">${participants.length}</div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#dcfce7;"><i class="fa fa-check" style="color:#16a34a;"></i></div>
+      <div class="stat-label">평균 출석률</div><div class="stat-value" style="color:${parseFloat(avgRate)>=80?'#16a34a':'#dc2626'}">${avgRate}%</div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#dcfce7;"><i class="fa fa-award" style="color:#16a34a;"></i></div>
+      <div class="stat-label">80% 충족(수료예상)</div><div class="stat-value" style="color:#16a34a;">${passCount}명</div>
+      <div class="stat-sub">미충족 ${participants.length - passCount}명</div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#fee2e2;"><i class="fa fa-question" style="color:#dc2626;"></i></div>
+      <div class="stat-label">미완료(?)</div><div class="stat-value">${totalIncomplete}</div><div class="stat-sub">확정 필요</div></div>
+  `;
+}
+
+function getFilteredRecords(participantId, sessions, incMode) {
+  return sessions.map(s => {
+    const r = records.find(r => r.sessionId === s.id && r.participantId === participantId);
+    if (!r) return { statusCode: 'X', attendedMinutes: 0, isRecognized: false };
+    if (r.statusCode === '?' && incMode === 'include') return { ...r, statusCode: 'X', isRecognized: false };
+    return r;
+  });
+}
+
+function buildTable(filteredSess) {
+  const wrap = document.getElementById('attTableWrap');
+  if (!participants.length) {
+    wrap.innerHTML = '<div class="empty-state"><i class="fa fa-users"></i><p>등록된 참여자가 없습니다.</p></div>';
+    return;
+  }
+  const c = currentCourse;
+  const activeSess = filteredSess.filter(s => !s.isCancelled);
+  const incMode = document.getElementById('incompleteMode').value;
+
+  // Group sessions by month for header
+  const monthGroups = {};
+  filteredSess.forEach(s => {
+    const m = s.date.substring(0,7);
+    if (!monthGroups[m]) monthGroups[m] = [];
+    monthGroups[m].push(s);
+  });
+
+  let html = `<table class="att-main-table" id="mainAttTable">
+    <thead>
+      <tr>
+        <th colspan="2" class="col-sticky col-sticky-1">참여자 정보</th>`;
+
+  // Month headers
+  Object.entries(monthGroups).forEach(([month, sess]) => {
+    html += `<th colspan="${sess.length}" style="background:#1e3a8a;">${month}</th>`;
+  });
+  html += `<th colspan="9" style="background:#0f2d6b;">집계</th></tr>
+    <tr>
+      <th class="col-sticky col-sticky-1" style="min-width:72px;">성명</th>
+      <th class="col-sticky col-sticky-2" style="min-width:86px;">생년월일</th>`;
+
+  // Session headers
+  filteredSess.forEach(s => {
+    const day = getDayOfWeekKR(s.date);
+    const dd = s.date.substring(8);
+    const isCancelled = s.isCancelled;
+    html += `<th ${isCancelled ? 'style="opacity:.5;"' : ''} title="${s.date}(${day}) ${isCancelled?'[휴강]':''}회차${s.sessionNo}">
+      ${dd}<br/><span style="font-size:9px;color:${isCancelled?'#f59e0b':'#64748b'}">${isCancelled?'휴':''}${s.sessionNo||''}</span>
+    </th>`;
+  });
+
+  html += `<th>인정<br/>출석</th><th>원결석</th><th>지각</th><th>조퇴</th><th>복합</th><th>환산<br/>결석</th><th>총결석</th><th>출석률</th><th>수료</th></tr>
+    </thead>
+    <tbody>`;
+
+  // Data rows
+  participants.forEach(p => {
+    const pRecords = getFilteredRecords(p.id, activeSess, incMode);
+    const summary = calcAttendanceSummary(pRecords, activeSess.length, {
+      complexWeight: c.complexWeight || 2, completionRate: c.completionRate || 0.8
+    });
+
+    html += `<tr>
+      <td class="col-sticky col-sticky-1">
+        <span style="cursor:pointer;color:#1e3a8a;font-weight:700;" onclick="showParticipantDetail('${p.id}')">
+          ${escapeHtml(p.name)}
+        </span>
+      </td>
+      <td class="col-sticky col-sticky-2" style="font-size:10px;">${p.birthDate || '-'}</td>`;
+
+    filteredSess.forEach(s => {
+      if (s.isCancelled) { html += `<td style="background:#f8fafc;color:#94a3b8;">-</td>`; return; }
+      const r = records.find(r => r.sessionId === s.id && r.participantId === p.id);
+      const code = r ? r.statusCode : 'X';
+      const color = { '○':'#22c55e','◎':'#f59e0b','▲':'#f97316','◎▲':'#ef4444','X':'#dc2626','?':'#94a3b8' }[code] || '#64748b';
+      const bg = { '○':'#f0fdf4','◎':'#fffbeb','▲':'#fff7ed','◎▲':'#fff1f2','X':'#fff1f2','?':'#f8fafc' }[code] || '';
+      const rid = r ? r.id : '';
+      html += `<td style="background:${bg};cursor:pointer;" title="${s.date} ${STATUS_LABEL[code]||''}"
+        onclick="openAttEdit('${s.id}','${p.id}','${rid}')">
+        <span style="color:${color};font-weight:700;">${code || '-'}</span>
+      </td>`;
+    });
+
+    const rate = summary.attendanceRate;
+    const passClass = summary.isCompleted ? 'pass-cell' : 'fail-cell';
+    html += `
+      <td>${summary.recognized}</td>
+      <td>${summary.absenceRaw}</td>
+      <td>${summary.lateCount}</td>
+      <td>${summary.earlyCount}</td>
+      <td>${summary.complexCount}</td>
+      <td>${summary.absenceConverted}<span class="stat-mini"> (${summary.remainToConvert}/3)</span></td>
+      <td>${summary.absenceTotal}</td>
+      <td class="${passClass}">${rate}%</td>
+      <td class="${passClass}">${summary.isCompleted ? '✓' : '✗'}</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  wrap.innerHTML = html;
+}
+
+// ===== Attendance Edit =====
+async function openAttEdit(sessionId, participantId, recordId) {
+  const s = sessions.find(s => s.id === sessionId);
+  const p = participants.find(p => p.id === participantId);
+  const r = recordId ? records.find(r => r.id === recordId) : null;
+  if (!s || !p) return;
+
+  currentEditRecord = r;
+  currentEditSession = s;
+  currentEditParticipant = p;
+
+  document.getElementById('attEditTitle').textContent = `출결 수정 - ${p.name}`;
+  document.getElementById('attEditInfo').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div><strong>날짜:</strong> ${s.date} (${getDayOfWeekKR(s.date)})</div>
+      <div><strong>세션:</strong> ${s.sessionNo}회차</div>
+      <div><strong>참여자:</strong> ${escapeHtml(p.name)}</div>
+      <div><strong>수업시간:</strong> ${formatTimeHM(s.startDateTime)}~${formatTimeHM(s.endDateTime)}</div>
+      ${r ? `<div><strong>현재 상태:</strong> <span style="color:${STATUS_COLOR[r.statusCode]||'#333'};font-weight:700;">${r.statusCode}</span></div>` : ''}
+    </div>`;
+
+  // Set datetime-local inputs
+  const toLocalDT = (iso) => {
+    if (!iso) return '';
+    const d = toSeoulDate(new Date(iso));
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  };
+
+  document.getElementById('editCheckIn').value = r ? toLocalDT(r.checkInAt) : toLocalDT(s.startDateTime);
+  document.getElementById('editCheckOut').value = r ? toLocalDT(r.checkOutAt) : '';
+  document.getElementById('editReason').value = '';
+  document.getElementById('attEditPreview').style.display = 'none';
+
+  // Live preview
+  ['editCheckIn','editCheckOut'].forEach(id => {
+    document.getElementById(id).oninput = updateAttPreview;
+  });
+
+  openModal('attEditModal');
+}
+
+function updateAttPreview() {
+  const s = currentEditSession;
+  const c = currentCourse;
+  if (!s || !c) return;
+
+  const inVal = document.getElementById('editCheckIn').value;
+  const outVal = document.getElementById('editCheckOut').value;
+  if (!inVal) return;
+
+  const checkIn = inVal ? new Date(inVal).toISOString() : null;
+  const checkOut = outVal ? new Date(outVal).toISOString() : null;
+
+  const result = determineAttendanceStatus(checkIn, checkOut, s.startDateTime, s.endDateTime, {
+    lateGraceMinutes: c.lateGraceMinutes || 10,
+    earlyGraceMinutes: c.earlyGraceMinutes || 10,
+    recognitionRate: c.recognitionRate || 0.5
+  });
+
+  const preview = document.getElementById('attEditPreview');
+  preview.style.display = 'block';
+  document.getElementById('previewStatus').innerHTML =
+    `<span style="color:${STATUS_COLOR[result.statusCode]};font-weight:700;font-size:15px;">${result.statusCode}</span> ${STATUS_LABEL[result.statusCode]||''}`;
+  document.getElementById('previewMinutes').textContent = result.attendedMinutes
+    ? ` | 참여시간: ${result.attendedMinutes}분` : '';
+}
+
+async function saveAttEdit() {
+  const reason = document.getElementById('editReason').value.trim();
+  if (!reason) { showToast('수정 사유를 입력하세요.', 'warning'); return; }
+
+  const s = currentEditSession;
+  const p = currentEditParticipant;
+  const c = currentCourse;
+  const r = currentEditRecord;
+
+  const inVal = document.getElementById('editCheckIn').value;
+  const outVal = document.getElementById('editCheckOut').value;
+  const checkIn = inVal ? new Date(inVal).toISOString() : null;
+  const checkOut = outVal ? new Date(outVal).toISOString() : null;
+
+  const result = determineAttendanceStatus(checkIn, checkOut, s.startDateTime, s.endDateTime, {
+    lateGraceMinutes: c.lateGraceMinutes || 10,
+    earlyGraceMinutes: c.earlyGraceMinutes || 10,
+    recognitionRate: c.recognitionRate || 0.5
+  });
+
+  const newData = {
+    id: (r && r.id) || generateUUID(),
+    sessionId: s.id, courseId: c.id, participantId: p.id,
+    checkInAt: checkIn, checkOutAt: checkOut,
+    statusCode: result.statusCode,
+    attendedMinutes: result.attendedMinutes,
+    isRecognized: result.isRecognized,
+    finalized: result.finalized,
+    manuallyAdjusted: true,
+    adjustReason: reason,
+    finalizedBy: adminSession.id,
+    finalizedAt: new Date().toISOString()
+  };
+
+  try {
+    if (r && r.id) {
+      await apiPut('attendance_records', r.id, newData);
+      const idx = records.findIndex(rec => rec.id === r.id);
+      if (idx !== -1) records[idx] = newData;
+    } else {
+      const created = await apiPost('attendance_records', newData);
+      records.push(created);
+    }
+
+    await writeAuditLog({
+      actorId: adminSession.id, actorName: adminSession.name,
+      action: 'UPDATE_ATTENDANCE', entityType: 'attendance_record',
+      entityId: newData.id,
+      before: r || null, after: newData, reason
+    });
+
+    showToast('출결이 수정되었습니다.', 'success');
+    closeModal('attEditModal');
+    renderAttendance();
+  } catch (err) {
+    showToast('저장 실패: ' + err.message, 'error');
+  }
+}
+
+// ===== Participant Detail =====
+function showParticipantDetail(participantId) {
+  currentParticipantDetail = participants.find(p => p.id === participantId);
+  if (!currentParticipantDetail) return;
+  const p = currentParticipantDetail;
+  const c = currentCourse;
+  const activeSess = sessions.filter(s => !s.isInactive && !s.isCancelled).sort((a,b)=>a.date.localeCompare(b.date));
+  const incMode = document.getElementById('incompleteMode').value;
+  const pRecords = activeSess.map(s => records.find(r => r.sessionId === s.id && r.participantId === p.id));
+  const summary = calcAttendanceSummary(
+    pRecords.map((r,i) => r || { statusCode: 'X', attendedMinutes: 0, isRecognized: false }),
+    activeSess.length, { complexWeight: c.complexWeight || 2, completionRate: c.completionRate || 0.8 }
+  );
+
+  document.getElementById('participantModalTitle').textContent = `개인 출석부 - ${p.name} (${p.birthDate || ''})`;
+
+  let html = `
+    <div class="stats-grid" style="margin-bottom:16px;">
+      <div class="stat-card"><div class="stat-label">총 교육일수</div><div class="stat-value">${summary.totalSessions}</div></div>
+      <div class="stat-card"><div class="stat-label">인정 출석일수</div><div class="stat-value" style="color:#16a34a;">${summary.recognized}</div></div>
+      <div class="stat-card"><div class="stat-label">출석률</div>
+        <div class="stat-value" style="color:${summary.isCompleted?'#16a34a':'#dc2626'};">${summary.attendanceRate}%</div></div>
+      <div class="stat-card"><div class="stat-label">수료 여부</div>
+        <div class="stat-value" style="color:${summary.isCompleted?'#16a34a':'#dc2626'};">${summary.isCompleted?'✓수료예정':'✗미충족'}</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;padding:12px;background:#f8fafc;border-radius:8px;margin-bottom:16px;font-size:12px;text-align:center;">
+      <div><div style="font-weight:700;color:#22c55e;">${summary.recognized}</div><div style="color:#64748b;">출석인정</div></div>
+      <div><div style="font-weight:700;color:#dc2626;">${summary.absenceRaw}</div><div style="color:#64748b;">원결석</div></div>
+      <div><div style="font-weight:700;color:#f59e0b;">${summary.lateCount}</div><div style="color:#64748b;">지각</div></div>
+      <div><div style="font-weight:700;color:#f97316;">${summary.earlyCount}</div><div style="color:#64748b;">조퇴</div></div>
+      <div><div style="font-weight:700;color:#ef4444;">${summary.complexCount}</div><div style="color:#64748b;">복합(◎▲)</div></div>
+      <div><div style="font-weight:700;color:#dc2626;">${summary.absenceConverted}</div><div style="color:#64748b;">환산결석 (${summary.remainToConvert}/3)</div></div>
+    </div>
+    <div class="table-wrapper">
+    <table class="data-table" style="font-size:12px;">
+      <thead><tr>
+        <th>회차</th><th>날짜</th><th>요일</th><th>입실시간</th><th>퇴실시간</th>
+        <th>참여시간</th><th>상태</th><th>지각</th><th>조퇴</th><th>인정</th><th>비고</th><th></th>
+      </tr></thead>
+      <tbody>`;
+
+  activeSess.forEach((s, i) => {
+    const r = pRecords[i];
+    const code = r ? r.statusCode : 'X';
+    const color = STATUS_COLOR[code] || '#64748b';
+    const isLate = r ? (r.checkInAt && new Date(r.checkInAt) > new Date(new Date(s.startDateTime).getTime() + (c.lateGraceMinutes||10)*60000)) : false;
+    const isEarly = r ? (r.checkOutAt && new Date(r.checkOutAt) < new Date(new Date(s.endDateTime).getTime() - (c.earlyGraceMinutes||10)*60000)) : false;
+
+    html += `<tr>
+      <td>${s.sessionNo}</td>
+      <td>${s.date}</td>
+      <td>${getDayOfWeekKR(s.date)}</td>
+      <td>${r && r.checkInAt ? formatTimeHM(r.checkInAt) : '-'}</td>
+      <td>${r && r.checkOutAt ? formatTimeHM(r.checkOutAt) : '-'}</td>
+      <td>${r && r.attendedMinutes ? r.attendedMinutes+'분' : '-'}</td>
+      <td><span style="color:${color};font-weight:700;">${code}</span></td>
+      <td>${isLate ? '<span style="color:#f59e0b;">●</span>' : '-'}</td>
+      <td>${isEarly ? '<span style="color:#f97316;">●</span>' : '-'}</td>
+      <td>${r && r.isRecognized ? '<span style="color:#22c55e;">✓</span>' : '<span style="color:#dc2626;">✗</span>'}</td>
+      <td style="font-size:10px;color:#94a3b8;">${r && r.manuallyAdjusted ? '수정됨' : ''}</td>
+      <td><button class="btn btn-secondary btn-sm" onclick="openAttEdit('${s.id}','${p.id}','${r ? r.id : ''}');closeModal('participantModal')">
+        <i class="fa fa-edit"></i>
+      </button></td>
+    </tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+  document.getElementById('participantModalBody').innerHTML = html;
+  openModal('participantModal');
+}
+
+function exportParticipantExcel() {
+  if (!currentParticipantDetail || !currentCourse) return;
+  const p = currentParticipantDetail;
+  const c = currentCourse;
+  const activeSess = sessions.filter(s => !s.isInactive && !s.isCancelled).sort((a,b)=>a.date.localeCompare(b.date));
+
+  const rows = [
+    ['성남여성인력개발센터 직업교육훈련 개인 출석부'],
+    [],
+    ['과정명', c.name, '', '성명', p.name, '', '생년월일', p.birthDate || ''],
+    [],
+    ['회차', '날짜', '요일', '입실시간', '퇴실시간', '참여시간(분)', '상태', '지각여부', '조퇴여부', '인정여부', '비고']
+  ];
+
+  activeSess.forEach(s => {
+    const r = records.find(r => r.sessionId === s.id && r.participantId === p.id);
+    const code = r ? r.statusCode : 'X';
+    const isLate = r && r.checkInAt && new Date(r.checkInAt) > new Date(new Date(s.startDateTime).getTime() + (c.lateGraceMinutes||10)*60000);
+    const isEarly = r && r.checkOutAt && new Date(r.checkOutAt) < new Date(new Date(s.endDateTime).getTime() - (c.earlyGraceMinutes||10)*60000);
+
+    rows.push([
+      s.sessionNo, s.date, getDayOfWeekKR(s.date)+'요일',
+      r && r.checkInAt ? formatTimeHM(r.checkInAt) : '-',
+      r && r.checkOutAt ? formatTimeHM(r.checkOutAt) : '-',
+      r ? r.attendedMinutes || 0 : 0,
+      code, isLate ? '지각' : '-', isEarly ? '조퇴' : '-',
+      r && r.isRecognized ? '인정' : '미인정',
+      r && r.adjustReason ? r.adjustReason : ''
+    ]);
+  });
+
+  downloadExcel(rows, '개인출석부', `개인출석부_${p.name}_${c.name}.xlsx`);
+}
+
+// ===== Excel Export =====
+function exportExcel() {
+  if (!currentCourse || !filteredSessions.length) { showToast('먼저 과정을 선택하세요.', 'warning'); return; }
+  const c = currentCourse;
+  const activeSess = filteredSessions.filter(s => !s.isCancelled);
+  const incMode = document.getElementById('incompleteMode').value;
+
+  const header1 = ['성명', '생년월일', ...filteredSessions.map(s => s.date),
+    '인정출석', '원결석', '지각', '조퇴', '복합', '환산결석', '총결석', '출석률', '수료여부'];
+  const header2 = ['', '', ...filteredSessions.map(s => getDayOfWeekKR(s.date)+'요일'),
+    '', '', '', '', '', '', '', '', ''];
+
+  const rows = [
+    [`성남여성인력개발센터 직업교육훈련 출석부 - ${c.name}`],
+    [`기간: ${c.startDate} ~ ${c.endDate}`, `참여인원: ${participants.length}명`],
+    [],
+    header1, header2
+  ];
+
+  participants.forEach(p => {
+    const pRecords = getFilteredRecords(p.id, activeSess, incMode);
+    const summary = calcAttendanceSummary(pRecords, activeSess.length, {
+      complexWeight: c.complexWeight || 2, completionRate: c.completionRate || 0.8
+    });
+    const row = [p.name, p.birthDate || ''];
+    filteredSessions.forEach(s => {
+      if (s.isCancelled) { row.push('휴강'); return; }
+      const r = records.find(r => r.sessionId === s.id && r.participantId === p.id);
+      row.push(r ? r.statusCode : 'X');
+    });
+    row.push(summary.recognized, summary.absenceRaw, summary.lateCount, summary.earlyCount,
+      summary.complexCount, summary.absenceConverted, summary.absenceTotal,
+      summary.attendanceRate+'%', summary.isCompleted ? '수료예정' : '미충족');
+    rows.push(row);
+  });
+
+  downloadExcel(rows, '출석부', `출석부_${c.name}.xlsx`);
+}
+
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+init();
+</script>
+</body>
+</html>

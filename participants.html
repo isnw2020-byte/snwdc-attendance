@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>참여자 관리 - 성남여성인력개발센터</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
+  <style>
+    .enroll-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; background: #f8fafc;
+      border: 1px solid #e2e8f0; border-radius: 8px;
+      margin-bottom: 6px;
+    }
+    .enroll-item select { flex: 1; }
+    .enroll-item .enroll-status { width: 100px; }
+    .enroll-item .btn-remove { flex-shrink: 0; }
+    .enroll-add-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px; border: 2px dashed #cbd5e1;
+      border-radius: 8px; background: none; color: #64748b;
+      font-size: 13px; cursor: pointer; width: 100%;
+      justify-content: center; transition: all .2s;
+    }
+    .enroll-add-btn:hover { border-color: #1e3a8a; color: #1e3a8a; background: #eff6ff; }
+    .course-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .course-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    }
+    .course-tag.active  { background: #dbeafe; color: #1e40af; }
+    .course-tag.done    { background: #dcfce7; color: #166534; }
+    .course-tag.dropout { background: #fee2e2; color: #991b1b; }
+    .course-tag.fail    { background: #fef3c7; color: #92400e; }
+    .tab-btns { display:flex; gap:0; margin-bottom:18px; border-radius:8px; background:#f1f5f9; padding:3px; }
+    .tab-btns button { flex:1; padding:8px 12px; border:none; background:none; font-size:13px; font-weight:500; color:#64748b; border-radius:6px; cursor:pointer; transition:all .2s; }
+    .tab-btns button.active { background:white; color:#1e3a8a; font-weight:700; box-shadow:0 1px 3px rgba(0,0,0,.1); }
+    .modal-xl { max-width: 680px !important; }
+    #enrollList { min-height: 40px; }
+    .detail-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; font-size:13px; }
+    .detail-row .label { color:#64748b; font-size:11px; margin-bottom:2px; }
+    .detail-row .value { font-weight:600; }
+    .loading-row td { padding: 48px !important; text-align:center; color:#94a3b8; }
+    .status-dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:4px; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><span>🏫</span></div>
+      <div><div class="logo-text">성남여성인력개발센터</div><div class="logo-sub">출결관리시스템</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">메인</div>
+      <a href="index.html" class="nav-item"><i class="fa fa-home"></i> 대시보드</a>
+      <a href="courses.html" class="nav-item"><i class="fa fa-book"></i> 과정 관리</a>
+      <a href="participants.html" class="nav-item active"><i class="fa fa-users"></i> 참여자 관리</a>
+      <div class="nav-section">출결</div>
+      <a href="qr-admin.html" class="nav-item"><i class="fa fa-qrcode"></i> QR 코드 발급</a>
+      <a href="attendance.html" class="nav-item"><i class="fa fa-calendar-check"></i> 출결 현황</a>
+      <div class="nav-section">보고서</div>
+      <a href="report.html" class="nav-item"><i class="fa fa-chart-bar"></i> 리포트/다운로드</a>
+      <a href="audit-log.html" class="nav-item"><i class="fa fa-history"></i> 감사 로그</a>
+      <div class="nav-section">시스템</div>
+      <a href="settings.html" class="nav-item"><i class="fa fa-cog"></i> 시스템 설정</a>
+      <a href="holidays.html" class="nav-item"><i class="fa fa-calendar-xmark"></i> 공휴일 관리</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="sidebarUser" style="margin-bottom:8px;font-weight:600;"></div>
+      <a href="#" onclick="doLogout()" style="color:rgba(255,255,255,.6);font-size:11px;"><i class="fa fa-sign-out-alt"></i> 로그아웃</a>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="top-header">
+      <span class="page-title"><i class="fa fa-users" style="color:#1e3a8a;"></i> 참여자 관리</span>
+      <div class="header-actions">
+        <button class="btn btn-primary" onclick="openAddModal()">
+          <i class="fa fa-user-plus"></i> 참여자 추가
+        </button>
+      </div>
+    </header>
+
+    <main class="page-body fade-in">
+
+      <!-- ① 과정 선택 패널 -->
+      <div class="card" style="margin-bottom:16px;" id="courseSelectPanel">
+        <div class="card-header">
+          <i class="fa fa-book" style="color:#1e3a8a;"></i>
+          <h3>과정 선택</h3>
+          <span style="margin-left:auto;font-size:12px;color:#94a3b8;">과정을 선택하면 해당 과정 참여자만 표시됩니다</span>
+        </div>
+        <div class="card-body" style="padding:14px 16px;">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            <select class="form-control" id="courseFilter" style="flex:1;min-width:220px;font-size:14px;font-weight:600;" onchange="onCourseSelect()">
+              <option value="">── 전체 참여자 보기 ──</option>
+            </select>
+            <select class="form-control" id="statusFilter" style="width:130px;" onchange="filterList()">
+              <option value="">전체 상태</option>
+              <option value="수강중">🔵 수강중</option>
+              <option value="수료">🟢 수료</option>
+              <option value="미수료">🟡 미수료</option>
+              <option value="탈강">🔴 탈강</option>
+            </select>
+            <button class="btn btn-secondary" onclick="loadData()" title="새로고침">
+              <i class="fa fa-rotate-right"></i>
+            </button>
+          </div>
+          <!-- 선택된 과정 정보 배너 -->
+          <div id="courseInfoBanner" style="display:none;margin-top:10px;padding:10px 14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:13px;">
+          </div>
+        </div>
+      </div>
+
+      <!-- ② 검색 + 통계 -->
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
+        <div class="search-input-wrap" style="flex:1;">
+          <i class="fa fa-search"></i>
+          <input type="text" class="form-control search-input" id="searchInput"
+            placeholder="이름, 생년월일, 연락처 검색..." oninput="filterList()"/>
+        </div>
+      </div>
+
+      <!-- 통계 카드 -->
+      <div class="stats-grid" id="statsGrid" style="margin-bottom:16px; display:none;"></div>
+
+      <!-- 테이블 -->
+      <div class="card">
+        <div class="card-header">
+          <i class="fa fa-users" style="color:#1e3a8a;"></i>
+          <h3 id="tableTitle">참여자 목록</h3>
+          <span id="pCount" class="badge badge-secondary" style="margin-left:auto;"></span>
+        </div>
+        <div class="table-wrapper" style="border-radius:0 0 12px 12px;border:none;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width:40px;">#</th>
+                <th>성명</th>
+                <th>생년월일</th>
+                <th>연락처</th>
+                <th>수강 과정</th>
+                <th>등록일</th>
+                <th style="width:100px;"></th>
+              </tr>
+            </thead>
+            <tbody id="pTableBody">
+              <tr class="loading-row">
+                <td colspan="7"><i class="fa fa-spinner fa-spin"></i> 데이터를 불러오는 중...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ===================== 참여자 추가/수정 모달 ===================== -->
+<div class="modal-overlay" id="pModal" style="display:none;">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <h3 id="pModalTitle">참여자 추가</h3>
+      <button class="modal-close" onclick="closeModal('pModal')">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- 탭 -->
+      <div class="tab-btns">
+        <button id="tab-info-btn" class="active" onclick="switchTab('info')">
+          <i class="fa fa-user"></i> 기본 정보
+        </button>
+        <button id="tab-enroll-btn" onclick="switchTab('enroll')">
+          <i class="fa fa-graduation-cap"></i> 수강 과정
+          <span id="enrollCountBadge" style="margin-left:4px;"></span>
+        </button>
+      </div>
+
+      <!-- 기본 정보 탭 -->
+      <div id="tab-info">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label required">성명</label>
+            <input type="text" id="fName" class="form-control" placeholder="홍길동"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">생년월일</label>
+            <input type="date" id="fBirth" class="form-control"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">연락처</label>
+          <input type="tel" id="fPhone" class="form-control" placeholder="010-0000-0000"/>
+        </div>
+        <div id="editInfoDetail" style="display:none; margin-top:12px; padding:12px; background:#f8fafc; border-radius:8px;">
+          <div style="font-size:11px; color:#94a3b8; margin-bottom:6px;">등록 정보</div>
+          <div class="detail-row">
+            <div><div class="label">참여자 ID</div><div class="value" id="dId" style="font-size:11px;color:#94a3b8;"></div></div>
+            <div><div class="label">최초 등록일</div><div class="value" id="dCreated" style="font-size:11px;color:#94a3b8;"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 수강 과정 탭 -->
+      <div id="tab-enroll" style="display:none;">
+        <div style="margin-bottom:12px; padding:10px 12px; background:#eff6ff; border-radius:8px; font-size:12px; color:#1e40af;">
+          <i class="fa fa-circle-info"></i>
+          수강 과정을 추가하면 해당 과정의 출석부에 자동으로 등록됩니다.
+          같은 과정을 중복 등록할 수 없습니다.
+        </div>
+        <div id="enrollList"></div>
+        <button class="enroll-add-btn" onclick="addEnrollRow()">
+          <i class="fa fa-plus"></i> 과정 추가
+        </button>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('pModal')">취소</button>
+      <button class="btn btn-primary" id="saveBtn" onclick="saveParticipant()">
+        <i class="fa fa-save"></i> 저장
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== 상세보기 모달 ===================== -->
+<div class="modal-overlay" id="detailModal" style="display:none;">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <h3 id="detailModalTitle">참여자 상세</h3>
+      <button class="modal-close" onclick="closeModal('detailModal')">✕</button>
+    </div>
+    <div class="modal-body" id="detailModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('detailModal')">닫기</button>
+      <button class="btn btn-primary" id="detailEditBtn" onclick="editFromDetail()">
+        <i class="fa fa-edit"></i> 수정
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script>
+// ====================================================
+// 인증
+// ====================================================
+const adminSession = requireAuth();
+if (!adminSession) throw new Error('Not authenticated');
+document.getElementById('sidebarUser').textContent = `${adminSession.name} (관리자)`;
+
+// ====================================================
+// 전역 상태
+// ====================================================
+let allParticipants = [];   // 삭제 안된 참여자
+let allEnrollments  = [];   // 전체 수강 (deleted 포함)
+let allCourses      = [];   // 삭제 안된 과정
+
+let editId       = null;    // 현재 편집 중인 참여자 ID
+let pendingEnrolls = [];    // 모달 내 수강 행 [{courseId, status, enrollId?, _del}]
+let detailId     = null;    // 상세보기 중인 참여자 ID
+
+function doLogout() {
+  if (confirm('로그아웃 하시겠습니까?')) { clearAuthSession(); window.location.href = 'login.html'; }
+}
+
+// ====================================================
+// 데이터 로드
+// ====================================================
+async function loadData() {
+  // 로딩 표시
+  document.getElementById('pTableBody').innerHTML =
+    '<tr class="loading-row"><td colspan="7"><i class="fa fa-spinner fa-spin"></i> 데이터를 불러오는 중...</td></tr>';
+  document.getElementById('statsGrid').style.display = 'none';
+
+  try {
+    const [pAll, eAll, cAll] = await Promise.all([
+      apiGetAll('participants'),
+      apiGetAll('enrollments'),
+      apiGetAll('courses')
+    ]);
+
+    allParticipants = pAll.filter(p => !p.deleted);
+    allEnrollments  = eAll;
+    allCourses      = cAll.filter(c => !c.deleted);
+
+    // 과정 필터 셀렉트 업데이트
+    const cf = document.getElementById('courseFilter');
+    const prevVal = cf.value;
+    cf.innerHTML = '<option value="">── 전체 참여자 보기 ──</option>' +
+      allCourses.map(c => `<option value="${c.id}">${escapeHtml(c.name)} (${c.status || ''})</option>`).join('');
+    if (prevVal) cf.value = prevVal;
+
+    onCourseSelect();
+  } catch (err) {
+    console.error('loadData 오류:', err);
+    document.getElementById('pTableBody').innerHTML =
+      `<tr class="loading-row"><td colspan="7" style="color:#ef4444;">
+        <i class="fa fa-circle-exclamation"></i> 데이터 로드 실패: ${escapeHtml(err.message)}
+        <br/><button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="loadData()">
+          <i class="fa fa-rotate-right"></i> 다시 시도
+        </button>
+      </td></tr>`;
+  }
+}
+
+// ====================================================
+// 통계 (선택된 과정 기준)
+// ====================================================
+function renderStats() {
+  const courseId = document.getElementById('courseFilter').value;
+
+  let enrollsScope = allEnrollments.filter(e => !e.deleted);
+  if (courseId) enrollsScope = enrollsScope.filter(e => e.courseId === courseId);
+
+  const activeEnrolls = enrollsScope.filter(e => e.status === '수강중');
+  const doneEnrolls   = enrollsScope.filter(e => e.status === '수료');
+  const failEnrolls   = enrollsScope.filter(e => e.status === '미수료');
+  const dropEnrolls   = enrollsScope.filter(e => e.status === '탈강');
+
+  const grid = document.getElementById('statsGrid');
+  grid.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#dbeafe;"><i class="fa fa-user-check" style="color:#1e3a8a;"></i></div>
+      <div class="stat-label">수강중</div><div class="stat-value" style="color:#1e3a8a;">${activeEnrolls.length}명</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#dcfce7;"><i class="fa fa-award" style="color:#16a34a;"></i></div>
+      <div class="stat-label">수료</div><div class="stat-value" style="color:#16a34a;">${doneEnrolls.length}명</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#fef3c7;"><i class="fa fa-clock" style="color:#d97706;"></i></div>
+      <div class="stat-label">미수료</div><div class="stat-value" style="color:#d97706;">${failEnrolls.length}명</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#fee2e2;"><i class="fa fa-user-minus" style="color:#dc2626;"></i></div>
+      <div class="stat-label">탈강</div><div class="stat-value" style="color:#dc2626;">${dropEnrolls.length}명</div>
+    </div>`;
+  grid.style.display = '';
+}
+
+// ====================================================
+// 과정 선택 → 배너 + 통계 + 목록 갱신
+// ====================================================
+function onCourseSelect() {
+  const courseId = document.getElementById('courseFilter').value;
+  const banner   = document.getElementById('courseInfoBanner');
+  const title    = document.getElementById('tableTitle');
+
+  if (courseId) {
+    const course = allCourses.find(c => c.id === courseId);
+    if (course) {
+      const enrollsInCourse = allEnrollments.filter(e => e.courseId === courseId && !e.deleted);
+      const active = enrollsInCourse.filter(e => e.status === '수강중').length;
+      const done   = enrollsInCourse.filter(e => e.status === '수료').length;
+      banner.style.display = 'block';
+      banner.innerHTML = `
+        <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center;">
+          <div><strong style="font-size:15px;color:#1e3a8a;">${escapeHtml(course.name)}</strong></div>
+          <div style="font-size:12px;color:#64748b;">📅 ${course.startDate || '-'} ~ ${course.endDate || '-'}</div>
+          <div style="font-size:12px;color:#64748b;">👥 수강중 <strong>${active}명</strong> &nbsp; 수료 <strong>${done}명</strong> &nbsp; 전체 <strong>${enrollsInCourse.length}명</strong></div>
+          <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" onclick="openAddModalForCourse('${course.id}')">
+              <i class="fa fa-user-plus"></i> 이 과정에 참여자 추가
+            </button>
+            <a href="attendance.html?courseId=${course.id}" class="btn btn-secondary btn-sm">
+              <i class="fa fa-calendar-check"></i> 출결 현황
+            </a>
+          </div>
+        </div>`;
+      title.textContent = `${course.name} 참여자`;
+    }
+  } else {
+    banner.style.display = 'none';
+    title.textContent = '참여자 목록 (전체)';
+  }
+
+  renderStats();
+  filterList();
+}
+
+// ====================================================
+// 필터 & 목록 렌더
+// ====================================================
+function filterList() {
+  const q          = document.getElementById('searchInput').value.trim().toLowerCase();
+  const courseId   = document.getElementById('courseFilter').value;
+  const statusVal  = document.getElementById('statusFilter').value;
+
+  // 과정 필터 적용 시 해당 참여자 ID set 구성
+  let filteredByEnroll = allParticipants;
+  if (courseId || statusVal) {
+    const matchEnrolls = allEnrollments.filter(e => {
+      if (e.deleted) return false;
+      if (courseId  && e.courseId !== courseId)  return false;
+      if (statusVal && e.status   !== statusVal)  return false;
+      return true;
+    });
+    const pids = new Set(matchEnrolls.map(e => e.participantId));
+    filteredByEnroll = allParticipants.filter(p => pids.has(p.id));
+  }
+
+  const filtered = q
+    ? filteredByEnroll.filter(p =>
+        (p.name  || '').toLowerCase().includes(q) ||
+        (p.birthDate || '').includes(q) ||
+        (p.phone || '').replace(/-/g,'').includes(q.replace(/-/g,'')))
+    : filteredByEnroll;
+
+  document.getElementById('pCount').textContent = `${filtered.length}명`;
+  renderTable(filtered);
+}
+
+function renderTable(list) {
+  const tbody = document.getElementById('pTableBody');
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="7">
+      <div class="empty-state">
+        <i class="fa fa-user-slash"></i>
+        <p>조건에 맞는 참여자가 없습니다.</p>
+        <button class="btn btn-primary" onclick="openAddModal()"><i class="fa fa-user-plus"></i> 참여자 추가</button>
+      </div></td></tr>`;
+    return;
+  }
+
+  const STATUS_COLOR = { '수강중':'active','수료':'done','미수료':'fail','탈강':'dropout' };
+
+  tbody.innerHTML = list.map((p, i) => {
+    const pEnrolls = allEnrollments.filter(e => e.participantId === p.id && !e.deleted);
+    const tags = pEnrolls.map(e => {
+      const c = allCourses.find(c => c.id === e.courseId);
+      const cls = STATUS_COLOR[e.status] || 'active';
+      return c ? `<span class="course-tag ${cls}" title="${escapeHtml(c.name)} (${e.status})">${escapeHtml(c.name)}</span>` : '';
+    }).filter(Boolean).join('');
+
+    return `<tr>
+      <td style="color:#94a3b8;font-size:11px;">${i + 1}</td>
+      <td>
+        <span style="font-weight:700;color:#1e3a8a;cursor:pointer;" onclick="openDetailModal('${p.id}')">
+          ${escapeHtml(p.name)}
+        </span>
+      </td>
+      <td>${p.birthDate || '-'}</td>
+      <td>${p.phone || '-'}</td>
+      <td>
+        <div class="course-tags">
+          ${tags || '<span style="color:#94a3b8;font-size:11px;">없음</span>'}
+        </div>
+      </td>
+      <td style="font-size:11px;color:#94a3b8;">${fmtDate(p.created_at)}</td>
+      <td>
+        <div style="display:flex;gap:4px;">
+          <button class="btn btn-secondary btn-sm" onclick="openEditModal('${p.id}')" title="수정">
+            <i class="fa fa-edit"></i>
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="deleteP('${p.id}','${escapeHtml(p.name)}')" title="삭제">
+            <i class="fa fa-trash"></i>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ====================================================
+// 탭 전환
+// ====================================================
+function switchTab(tab) {
+  document.getElementById('tab-info').style.display   = tab === 'info'   ? 'block' : 'none';
+  document.getElementById('tab-enroll').style.display = tab === 'enroll' ? 'block' : 'none';
+  document.getElementById('tab-info-btn').classList.toggle('active',   tab === 'info');
+  document.getElementById('tab-enroll-btn').classList.toggle('active', tab === 'enroll');
+}
+
+// ====================================================
+// 추가 모달
+// ====================================================
+function openAddModal() {
+  editId = null;
+  document.getElementById('pModalTitle').textContent = '참여자 추가';
+  document.getElementById('fName').value  = '';
+  document.getElementById('fBirth').value = '';
+  document.getElementById('fPhone').value = '';
+  document.getElementById('editInfoDetail').style.display = 'none';
+  pendingEnrolls = [];
+  renderEnrollList();
+  switchTab('info');
+  document.getElementById('pModal').style.display = 'flex';
+}
+
+// 과정 선택 상태에서 해당 과정이 미리 세팅된 추가 모달 열기
+function openAddModalForCourse(courseId) {
+  editId = null;
+  const course = allCourses.find(c => c.id === courseId);
+  document.getElementById('pModalTitle').textContent =
+    course ? `참여자 추가 — ${course.name}` : '참여자 추가';
+  document.getElementById('fName').value  = '';
+  document.getElementById('fBirth').value = '';
+  document.getElementById('fPhone').value = '';
+  document.getElementById('editInfoDetail').style.display = 'none';
+  // 선택 과정을 수강 목록에 미리 추가
+  pendingEnrolls = [{ courseId: courseId, status: '수강중', enrollId: null, _del: false }];
+  renderEnrollList();
+  // 기본 정보 탭 먼저 표시 (이름/생년월일 입력 유도)
+  switchTab('info');
+  document.getElementById('pModal').style.display = 'flex';
+  // 이름 필드에 포커스
+  setTimeout(() => document.getElementById('fName').focus(), 100);
+}
+
+// ====================================================
+// 수정 모달
+// ====================================================
+function openEditModal(id) {
+  editId = id;
+  const p = allParticipants.find(p => p.id === id);
+  if (!p) return;
+
+  document.getElementById('pModalTitle').textContent = '참여자 수정';
+  document.getElementById('fName').value  = p.name      || '';
+  document.getElementById('fBirth').value = p.birthDate || '';
+  document.getElementById('fPhone').value = p.phone     || '';
+
+  // 등록 정보 표시
+  document.getElementById('editInfoDetail').style.display = 'block';
+  document.getElementById('dId').textContent      = p.id;
+  document.getElementById('dCreated').textContent = fmtDate(p.created_at);
+
+  // 기존 수강 목록 로드
+  const existing = allEnrollments.filter(e => e.participantId === id && !e.deleted);
+  pendingEnrolls = existing.map(e => ({
+    courseId: e.courseId,
+    status:   e.status || '수강중',
+    enrollId: e.id,
+    _del:     false
+  }));
+
+  renderEnrollList();
+  switchTab('info');
+  document.getElementById('pModal').style.display = 'flex';
+}
+
+// ====================================================
+// 수강 행 렌더
+// ====================================================
+function renderEnrollList() {
+  const list = document.getElementById('enrollList');
+  const active = pendingEnrolls.filter(r => !r._del);
+
+  // 배지 업데이트
+  const badge = document.getElementById('enrollCountBadge');
+  badge.innerHTML = active.length
+    ? `<span class="badge badge-primary">${active.length}</span>` : '';
+
+  if (!active.length) {
+    list.innerHTML = `<div style="text-align:center;padding:20px 0;color:#94a3b8;font-size:13px;">
+      <i class="fa fa-graduation-cap" style="font-size:24px;margin-bottom:8px;display:block;"></i>
+      등록된 수강 과정이 없습니다.
+    </div>`;
+    return;
+  }
+
+  const usedCourseIds = new Set(active.map(r => r.courseId));
+
+  list.innerHTML = active.map((row, idx) => {
+    const realIdx = pendingEnrolls.indexOf(row); // _del 포함 원본 인덱스
+    const courseOpts = allCourses.map(c => {
+      const disabled = usedCourseIds.has(c.id) && c.id !== row.courseId ? 'disabled' : '';
+      return `<option value="${c.id}" ${c.id === row.courseId ? 'selected' : ''} ${disabled}>
+        ${escapeHtml(c.name)} (${c.startDate || '?'}~${c.endDate || '?'})
+      </option>`;
+    }).join('');
+
+    const statusOpts = ['수강중','수료','미수료','탈강'].map(s =>
+      `<option value="${s}" ${s === row.status ? 'selected' : ''}>${s}</option>`
+    ).join('');
+
+    return `<div class="enroll-item" id="enrollRow_${realIdx}">
+      <select class="form-control" style="flex:1;" onchange="updateEnrollField(${realIdx},'courseId',this.value)">
+        <option value="">-- 과정 선택 --</option>
+        ${courseOpts}
+      </select>
+      <select class="form-control enroll-status" onchange="updateEnrollField(${realIdx},'status',this.value)">
+        ${statusOpts}
+      </select>
+      <button class="btn btn-danger btn-sm btn-remove" onclick="removeEnrollRow(${realIdx})" title="삭제">
+        <i class="fa fa-times"></i>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function addEnrollRow() {
+  pendingEnrolls.push({ courseId: '', status: '수강중', enrollId: null, _del: false });
+  renderEnrollList();
+  switchTab('enroll');
+}
+
+function removeEnrollRow(realIdx) {
+  const row = pendingEnrolls[realIdx];
+  if (row.enrollId) {
+    // 기존 DB 수강 → 삭제 마킹
+    pendingEnrolls[realIdx]._del = true;
+  } else {
+    // 새로 추가한 행 → 배열에서 제거
+    pendingEnrolls.splice(realIdx, 1);
+  }
+  renderEnrollList();
+}
+
+function updateEnrollField(realIdx, field, value) {
+  pendingEnrolls[realIdx][field] = value;
+  // 과정 변경 시 중복 체크용 리렌더
+  if (field === 'courseId') renderEnrollList();
+}
+
+// ====================================================
+// 저장
+// ====================================================
+async function saveParticipant() {
+  const name  = document.getElementById('fName').value.trim();
+  const birth = document.getElementById('fBirth').value;
+  if (!name)  { showToast('성명을 입력하세요.',     'warning'); switchTab('info'); return; }
+  if (!birth) { showToast('생년월일을 입력하세요.', 'warning'); switchTab('info'); return; }
+
+  // 수강 과정 유효성: 과정 미선택 행 확인
+  const activeEnrolls = pendingEnrolls.filter(r => !r._del);
+  for (const r of activeEnrolls) {
+    if (!r.courseId) {
+      showToast('과정이 선택되지 않은 행이 있습니다.', 'warning');
+      switchTab('enroll'); return;
+    }
+  }
+
+  const saveBtn = document.getElementById('saveBtn');
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 저장 중...';
+
+  try {
+    const pData = { name, birthDate: birth, phone: document.getElementById('fPhone').value.trim(), deleted: false };
+
+    let pid = editId;
+    if (editId) {
+      await apiPut('participants', editId, { ...pData, id: editId });
+      await writeAuditLog({
+        actorId: adminSession.id, actorName: adminSession.name,
+        action: 'UPDATE_PARTICIPANT', entityType: 'participant', entityId: editId,
+        after: pData, reason: '참여자 정보 수정'
+      });
+    } else {
+      pid = generateUUID();
+      await apiPost('participants', { ...pData, id: pid });
+      await writeAuditLog({
+        actorId: adminSession.id, actorName: adminSession.name,
+        action: 'CREATE_PARTICIPANT', entityType: 'participant', entityId: pid,
+        after: pData, reason: '참여자 신규 등록'
+      });
+    }
+
+    // ── 수강 동기화 ──────────────────────────────────────────
+    for (const row of pendingEnrolls) {
+      if (row._del && row.enrollId) {
+        // 삭제 마킹된 기존 수강 → soft delete
+        await apiPatch('enrollments', row.enrollId, { deleted: true });
+        await writeAuditLog({
+          actorId: adminSession.id, actorName: adminSession.name,
+          action: 'REMOVE_ENROLLMENT', entityType: 'enrollment', entityId: row.enrollId,
+          reason: '수강 취소'
+        });
+      } else if (!row._del && row.enrollId) {
+        // 기존 수강 → 상태 변경이 있을 때만 업데이트
+        const existing = allEnrollments.find(e => e.id === row.enrollId);
+        if (existing && existing.status !== row.status) {
+          await apiPatch('enrollments', row.enrollId, { status: row.status });
+          await writeAuditLog({
+            actorId: adminSession.id, actorName: adminSession.name,
+            action: 'UPDATE_ENROLLMENT', entityType: 'enrollment', entityId: row.enrollId,
+            before: { status: existing.status }, after: { status: row.status },
+            reason: '수강 상태 변경'
+          });
+        }
+      } else if (!row._del && !row.enrollId && row.courseId) {
+        // 새 수강 → 중복 체크 후 생성
+        const dup = allEnrollments.find(e =>
+          e.participantId === pid && e.courseId === row.courseId && !e.deleted
+        );
+        if (!dup) {
+          const eid = generateUUID();
+          await apiPost('enrollments', {
+            id: eid, courseId: row.courseId,
+            participantId: pid, status: row.status, deleted: false
+          });
+          await writeAuditLog({
+            actorId: adminSession.id, actorName: adminSession.name,
+            action: 'ADD_ENROLLMENT', entityType: 'enrollment', entityId: eid,
+            after: { courseId: row.courseId, status: row.status }, reason: '수강 등록'
+          });
+        }
+      }
+    }
+
+    showToast(editId ? '수정되었습니다.' : '참여자가 등록되었습니다.', 'success');
+    closeModal('pModal');
+    await loadData();
+  } catch (err) {
+    console.error('saveParticipant 오류:', err);
+    showToast('저장 실패: ' + err.message, 'error');
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = '<i class="fa fa-save"></i> 저장';
+  }
+}
+
+// ====================================================
+// 삭제
+// ====================================================
+async function deleteP(id, name) {
+  if (!confirm(`"${name}"님을 삭제하시겠습니까?\n\n⚠️ 수강 정보와 출결 기록은 보존됩니다.`)) return;
+  try {
+    await apiPatch('participants', id, { deleted: true });
+    await writeAuditLog({
+      actorId: adminSession.id, actorName: adminSession.name,
+      action: 'DELETE_PARTICIPANT', entityType: 'participant', entityId: id,
+      reason: '참여자 삭제'
+    });
+    showToast('삭제되었습니다.', 'success');
+    await loadData();
+  } catch (err) {
+    showToast('삭제 실패: ' + err.message, 'error');
+  }
+}
+
+// ====================================================
+// 상세보기 모달
+// ====================================================
+function openDetailModal(id) {
+  detailId = id;
+  const p = allParticipants.find(p => p.id === id);
+  if (!p) return;
+
+  document.getElementById('detailModalTitle').textContent = `참여자 상세 - ${p.name}`;
+  document.getElementById('detailEditBtn').onclick = () => { closeModal('detailModal'); openEditModal(id); };
+
+  const pEnrolls = allEnrollments.filter(e => e.participantId === id && !e.deleted)
+    .sort((a, b) => {
+      const ca = allCourses.find(c => c.id === a.courseId);
+      const cb = allCourses.find(c => c.id === b.courseId);
+      return (ca?.startDate || '').localeCompare(cb?.startDate || '');
+    });
+
+  const STATUS_BG  = { '수강중':'#dbeafe','수료':'#dcfce7','미수료':'#fef3c7','탈강':'#fee2e2' };
+  const STATUS_CLR = { '수강중':'#1d4ed8','수료':'#166534','미수료':'#92400e','탈강':'#991b1b' };
+
+  const enrollRows = pEnrolls.length
+    ? pEnrolls.map(e => {
+        const c = allCourses.find(c => c.id === e.courseId);
+        const bg  = STATUS_BG[e.status]  || '#f1f5f9';
+        const clr = STATUS_CLR[e.status] || '#475569';
+        return `<tr>
+          <td><strong>${escapeHtml(c?.name || '(삭제된 과정)')}</strong></td>
+          <td>${c?.startDate || '-'} ~ ${c?.endDate || '-'}</td>
+          <td><span style="background:${bg};color:${clr};padding:3px 8px;border-radius:20px;font-size:11px;font-weight:700;">${e.status}</span></td>
+          <td>
+            <a href="attendance.html?courseId=${e.courseId}&participantId=${id}" class="btn btn-primary btn-sm">
+              <i class="fa fa-table"></i> 출석부
+            </a>
+          </td>
+        </tr>`;
+      }).join('')
+    : `<tr><td colspan="4" class="text-center" style="padding:16px;color:#94a3b8;">수강 과정 없음</td></tr>`;
+
+  document.getElementById('detailModalBody').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:16px;background:#f8fafc;border-radius:10px;margin-bottom:16px;">
+      <div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">성명</div>
+        <div style="font-size:18px;font-weight:800;color:#1e3a8a;">${escapeHtml(p.name)}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">생년월일</div>
+        <div style="font-size:14px;font-weight:600;">${p.birthDate || '-'}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">연락처</div>
+        <div style="font-size:14px;font-weight:600;">${p.phone || '-'}</div>
+      </div>
+    </div>
+    <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:8px;">
+      <i class="fa fa-graduation-cap" style="color:#1e3a8a;"></i> 수강 과정 (${pEnrolls.length}개)
+    </div>
+    <div class="table-wrapper" style="border-radius:8px;">
+      <table class="data-table" style="font-size:13px;">
+        <thead><tr><th>과정명</th><th>기간</th><th>상태</th><th></th></tr></thead>
+        <tbody>${enrollRows}</tbody>
+      </table>
+    </div>`;
+
+  document.getElementById('detailModal').style.display = 'flex';
+}
+
+function editFromDetail() {
+  if (detailId) { closeModal('detailModal'); openEditModal(detailId); }
+}
+
+// ====================================================
+// 유틸
+// ====================================================
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+// created_at 이 숫자(ms) 또는 ISO 문자열 모두 안전하게 처리
+function fmtDate(val) {
+  if (!val) return '-';
+  try {
+    const d = typeof val === 'number' ? new Date(val) : new Date(String(val));
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleDateString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit', timeZone:'Asia/Seoul' }).replace(/\. /g,'-').replace('.','');
+  } catch { return '-'; }
+}
+
+// ====================================================
+// 초기 로드
+// ====================================================
+loadData();
+</script>
+</body>
+</html>

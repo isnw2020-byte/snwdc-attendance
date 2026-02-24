@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>감사 로그 - 성남여성인력개발센터</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><span>🏫</span></div>
+      <div><div class="logo-text">성남여성인력개발센터</div><div class="logo-sub">출결관리시스템</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">메인</div>
+      <a href="index.html" class="nav-item"><i class="fa fa-home"></i> 대시보드</a>
+      <a href="courses.html" class="nav-item"><i class="fa fa-book"></i> 과정 관리</a>
+      <a href="participants.html" class="nav-item"><i class="fa fa-users"></i> 참여자 관리</a>
+      <div class="nav-section">출결</div>
+      <a href="qr-admin.html" class="nav-item"><i class="fa fa-qrcode"></i> QR 코드 발급</a>
+      <a href="attendance.html" class="nav-item"><i class="fa fa-calendar-check"></i> 출결 현황</a>
+      <div class="nav-section">보고서</div>
+      <a href="report.html" class="nav-item"><i class="fa fa-chart-bar"></i> 리포트/다운로드</a>
+      <a href="audit-log.html" class="nav-item active"><i class="fa fa-history"></i> 감사 로그</a>
+      <div class="nav-section">시스템</div>
+      <a href="settings.html" class="nav-item"><i class="fa fa-cog"></i> 시스템 설정</a>
+      <a href="holidays.html" class="nav-item"><i class="fa fa-calendar-xmark"></i> 공휴일 관리</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="sidebarUser" style="margin-bottom:8px;font-weight:600;"></div>
+      <a href="#" onclick="doLogout()" style="color:rgba(255,255,255,.6);font-size:11px;"><i class="fa fa-sign-out-alt"></i> 로그아웃</a>
+    </div>
+  </aside>
+  <div class="main-content">
+    <header class="top-header">
+      <span class="page-title"><i class="fa fa-history" style="color:#1e3a8a;"></i> 감사 로그</span>
+    </header>
+    <main class="page-body fade-in">
+      <div class="filter-bar">
+        <div class="search-input-wrap">
+          <i class="fa fa-search"></i>
+          <input type="text" class="form-control search-input" id="searchInput" placeholder="액션/대상/사유 검색..." oninput="filterLogs()"/>
+        </div>
+        <select class="form-control" id="actionFilter" style="width:160px;" onchange="filterLogs()">
+          <option value="">전체 액션</option>
+          <option value="UPDATE_ATTENDANCE">출결 수정</option>
+          <option value="UPDATE_SESSION">교육일 수정</option>
+          <option value="REGENERATE_SESSIONS">교육일 재생성</option>
+          <option value="CREATE_COURSE">과정 생성</option>
+          <option value="UPDATE_COURSE">과정 수정</option>
+          <option value="DELETE_COURSE">과정 삭제</option>
+          <option value="CHANGE_PASSWORD">비밀번호 변경</option>
+          <option value="UPDATE_SETTINGS">설정 변경</option>
+        </select>
+        <input type="date" id="dateFrom" class="form-control" style="width:140px;" onchange="filterLogs()"/>
+        <input type="date" id="dateTo" class="form-control" style="width:140px;" onchange="filterLogs()"/>
+        <button class="btn btn-secondary" onclick="loadLogs()"><i class="fa fa-refresh"></i></button>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <i class="fa fa-list" style="color:#1e3a8a;"></i><h3>감사 로그 목록</h3>
+          <span id="logCount" class="badge badge-secondary" style="margin-left:auto;"></span>
+        </div>
+        <div class="table-wrapper" style="border-radius:0 0 12px 12px;border:none;">
+          <table class="data-table">
+            <thead>
+              <tr><th>시각</th><th>수행자</th><th>액션</th><th>대상</th><th>대상 ID</th><th>사유</th><th></th></tr>
+            </thead>
+            <tbody id="logTableBody">
+              <tr><td colspan="7" class="text-center" style="padding:40px;color:#94a3b8;"><i class="fa fa-spinner fa-spin"></i></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card-footer"><div id="logPagination" class="pagination"></div></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Log Detail Modal -->
+<div class="modal-overlay" id="logDetailModal">
+  <div class="modal modal-lg">
+    <div class="modal-header"><h3>감사 로그 상세</h3><button class="modal-close" onclick="closeModal('logDetailModal')">✕</button></div>
+    <div class="modal-body" id="logDetailBody"></div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal('logDetailModal')">닫기</button></div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script>
+const adminSession = requireAuth();
+if (!adminSession) throw new Error();
+document.getElementById('sidebarUser').textContent = `${adminSession.name} (관리자)`;
+let allLogs = [], filteredLogs = [], currentPage = 1;
+const PAGE_SIZE = 30;
+
+function doLogout() { if (confirm('로그아웃?')) { clearAuthSession(); window.location.href='login.html'; } }
+
+async function loadLogs() {
+  const data = await apiGetAll('audit_logs');
+  allLogs = data.sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||''));
+  filterLogs();
+}
+
+function filterLogs() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const action = document.getElementById('actionFilter').value;
+  const from = document.getElementById('dateFrom').value;
+  const to = document.getElementById('dateTo').value;
+
+  filteredLogs = allLogs.filter(l => {
+    if (action && l.action !== action) return false;
+    if (from && l.createdAt && l.createdAt.substring(0,10) < from) return false;
+    if (to && l.createdAt && l.createdAt.substring(0,10) > to) return false;
+    if (q && !(l.action?.toLowerCase().includes(q) || l.actorName?.toLowerCase().includes(q) ||
+               l.entityType?.toLowerCase().includes(q) || l.reason?.toLowerCase().includes(q))) return false;
+    return true;
+  });
+  currentPage = 1;
+  document.getElementById('logCount').textContent = filteredLogs.length + '건';
+  renderPage();
+}
+
+function renderPage() {
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageLogs = filteredLogs.slice(start, start + PAGE_SIZE);
+  const tbody = document.getElementById('logTableBody');
+
+  if (!pageLogs.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center" style="padding:40px;color:#94a3b8;">로그 없음</td></tr>';
+    renderPagination('logPagination', currentPage, Math.ceil(filteredLogs.length/PAGE_SIZE), p => { currentPage=p; renderPage(); });
+    return;
+  }
+
+  const actionColors = {
+    UPDATE_ATTENDANCE: '#f59e0b', UPDATE_SESSION: '#3b82f6', REGENERATE_SESSIONS: '#8b5cf6',
+    CREATE_COURSE: '#22c55e', UPDATE_COURSE: '#3b82f6', DELETE_COURSE: '#ef4444',
+    CHANGE_PASSWORD: '#ef4444', UPDATE_SETTINGS: '#64748b'
+  };
+  const actionLabels = {
+    UPDATE_ATTENDANCE: '출결 수정', UPDATE_SESSION: '교육일 수정', REGENERATE_SESSIONS: '교육일 재생성',
+    CREATE_COURSE: '과정 생성', UPDATE_COURSE: '과정 수정', DELETE_COURSE: '과정 삭제',
+    CHANGE_PASSWORD: '비밀번호 변경', UPDATE_SETTINGS: '설정 변경'
+  };
+
+  tbody.innerHTML = pageLogs.map(l => {
+    const color = actionColors[l.action] || '#64748b';
+    const label = actionLabels[l.action] || l.action || '-';
+    return `<tr>
+      <td style="font-size:11px;white-space:nowrap;">${l.createdAt ? l.createdAt.substring(0,16).replace('T',' ') : '-'}</td>
+      <td><strong>${escapeHtml(l.actorName || l.actorId || '-')}</strong></td>
+      <td><span class="badge" style="background:${color}22;color:${color};">${label}</span></td>
+      <td style="font-size:11px;">${l.entityType || '-'}</td>
+      <td style="font-size:10px;color:#94a3b8;max-width:100px;overflow:hidden;text-overflow:ellipsis;">${l.entityId ? l.entityId.substring(0,12)+'...' : '-'}</td>
+      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(l.reason || '-')}</td>
+      <td><button class="btn btn-secondary btn-sm" onclick="showDetail('${l.id}')"><i class="fa fa-eye"></i></button></td>
+    </tr>`;
+  }).join('');
+
+  renderPagination('logPagination', currentPage, Math.ceil(filteredLogs.length/PAGE_SIZE), p => { currentPage=p; renderPage(); });
+}
+
+function showDetail(id) {
+  const l = allLogs.find(l => l.id === id);
+  if (!l) return;
+  let before = '', after = '';
+  try { before = l.beforeJson ? JSON.stringify(JSON.parse(l.beforeJson), null, 2) : '-'; } catch { before = l.beforeJson || '-'; }
+  try { after = l.afterJson ? JSON.stringify(JSON.parse(l.afterJson), null, 2) : '-'; } catch { after = l.afterJson || '-'; }
+
+  document.getElementById('logDetailBody').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+      <div><strong>시각:</strong> ${l.createdAt ? l.createdAt.replace('T',' ').substring(0,19) : '-'}</div>
+      <div><strong>수행자:</strong> ${escapeHtml(l.actorName||l.actorId||'-')}</div>
+      <div><strong>액션:</strong> ${l.action || '-'}</div>
+      <div><strong>대상:</strong> ${l.entityType} / ${l.entityId}</div>
+      <div style="grid-column:1/-1;"><strong>사유:</strong> ${escapeHtml(l.reason || '-')}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:4px;">변경 전</div>
+        <pre style="background:#fff5f5;border:1px solid #fecaca;border-radius:6px;padding:10px;font-size:10px;overflow:auto;max-height:200px;">${escapeHtml(before)}</pre>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#22c55e;margin-bottom:4px;">변경 후</div>
+        <pre style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:10px;font-size:10px;overflow:auto;max-height:200px;">${escapeHtml(after)}</pre>
+      </div>
+    </div>`;
+  openModal('logDetailModal');
+}
+
+function escapeHtml(s) { return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+loadLogs();
+</script>
+</body>
+</html>

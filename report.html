@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>리포트/다운로드 - 성남여성인력개발센터 출결시스템</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><span>🏫</span></div>
+      <div><div class="logo-text">성남여성인력개발센터</div><div class="logo-sub">출결관리시스템</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">메인</div>
+      <a href="index.html" class="nav-item"><i class="fa fa-home"></i> 대시보드</a>
+      <a href="courses.html" class="nav-item"><i class="fa fa-book"></i> 과정 관리</a>
+      <a href="participants.html" class="nav-item"><i class="fa fa-users"></i> 참여자 관리</a>
+      <div class="nav-section">출결</div>
+      <a href="qr-admin.html" class="nav-item"><i class="fa fa-qrcode"></i> QR 코드 발급</a>
+      <a href="attendance.html" class="nav-item"><i class="fa fa-calendar-check"></i> 출결 현황</a>
+      <div class="nav-section">보고서</div>
+      <a href="report.html" class="nav-item active"><i class="fa fa-chart-bar"></i> 리포트/다운로드</a>
+      <a href="audit-log.html" class="nav-item"><i class="fa fa-history"></i> 감사 로그</a>
+      <div class="nav-section">시스템</div>
+      <a href="settings.html" class="nav-item"><i class="fa fa-cog"></i> 시스템 설정</a>
+      <a href="holidays.html" class="nav-item"><i class="fa fa-calendar-xmark"></i> 공휴일 관리</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="sidebarUser" style="margin-bottom:8px;font-weight:600;"></div>
+      <a href="#" onclick="doLogout()" style="color:rgba(255,255,255,.6);font-size:11px;"><i class="fa fa-sign-out-alt"></i> 로그아웃</a>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="top-header">
+      <span class="page-title"><i class="fa fa-chart-bar" style="color:#1e3a8a;"></i> 리포트 / 다운로드</span>
+    </header>
+
+    <main class="page-body fade-in">
+      <!-- Course & Period Selector -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header"><i class="fa fa-filter" style="color:#1e3a8a;"></i><h3>조회 조건</h3></div>
+        <div class="card-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label required">과정 선택</label>
+              <select id="reportCourse" class="form-control" onchange="onCourseChange()">
+                <option value="">-- 과정 선택 --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">기간 유형</label>
+              <select id="periodType" class="form-control" onchange="updatePeriodInputs()">
+                <option value="all">전체 기간</option>
+                <option value="month">월별</option>
+                <option value="unit">단위기간</option>
+                <option value="custom">기간 직접 입력</option>
+              </select>
+            </div>
+            <div id="monthInput" style="display:none;" class="form-group">
+              <label class="form-label">월 선택</label>
+              <select id="reportMonth" class="form-control"></select>
+            </div>
+            <div id="unitInput" style="display:none;" class="form-group">
+              <label class="form-label">단위기간 선택</label>
+              <select id="reportUnit" class="form-control"></select>
+            </div>
+            <div id="customInput" style="display:none;" class="form-group">
+              <label class="form-label">시작일</label>
+              <input type="date" id="reportStart" class="form-control"/>
+            </div>
+            <div id="customInput2" style="display:none;" class="form-group">
+              <label class="form-label">종료일</label>
+              <input type="date" id="reportEnd" class="form-control"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">미완료(?) 처리</label>
+              <select id="reportIncomplete" class="form-control">
+                <option value="exclude">미확정 제외</option>
+                <option value="include">결석으로 포함</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="generateReport()"><i class="fa fa-chart-bar"></i> 리포트 생성</button>
+            <button class="btn btn-success" onclick="downloadAll()"><i class="fa fa-file-excel"></i> 전체 출석부 엑셀</button>
+            <button class="btn btn-secondary" onclick="downloadSummary()"><i class="fa fa-file-excel"></i> 집계 요약 엑셀</button>
+            <button class="btn btn-secondary" onclick="downloadUnitSummary()"><i class="fa fa-file-excel"></i> 단위기간별 엑셀</button>
+            <button class="btn btn-secondary" onclick="window.print()"><i class="fa fa-print"></i> 인쇄</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary Stats -->
+      <div id="reportSummary" style="display:none;margin-bottom:16px;">
+        <div class="card">
+          <div class="card-header"><i class="fa fa-list-check" style="color:#1e3a8a;"></i><h3 id="reportTitle">출결 집계 결과</h3></div>
+          <div class="card-body">
+            <div class="stats-grid" id="reportStats"></div>
+            <div id="reportIncompleteAlert" style="display:none;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div id="chartSection" style="display:none;margin-bottom:16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="card">
+            <div class="card-header"><i class="fa fa-chart-pie" style="color:#1e3a8a;"></i><h3>출석률 분포</h3></div>
+            <div class="card-body" style="height:280px;"><canvas id="attendanceChart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><i class="fa fa-chart-bar" style="color:#1e3a8a;"></i><h3>참여자별 출석률</h3></div>
+            <div class="card-body" style="height:280px;overflow-y:auto;"><canvas id="participantChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detail Table -->
+      <div id="reportTable" style="display:none;">
+        <div class="card">
+          <div class="card-header">
+            <i class="fa fa-table" style="color:#1e3a8a;"></i>
+            <h3>참여자별 집계 상세</h3>
+            <div style="margin-left:auto;font-size:11px;color:#64748b;">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" id="showOnlyFail" onchange="filterReport()"/>
+                80% 미충족만 표시
+              </label>
+            </div>
+          </div>
+          <div class="table-wrapper" style="border-radius:0 0 12px 12px;border:none;">
+            <table class="data-table" id="reportDetailTable">
+              <thead>
+                <tr>
+                  <th>성명</th><th>생년월일</th>
+                  <th class="text-center">총 교육일</th>
+                  <th class="text-center">인정출석</th>
+                  <th class="text-center">원결석</th>
+                  <th class="text-center">지각</th>
+                  <th class="text-center">조퇴</th>
+                  <th class="text-center">복합(◎▲)</th>
+                  <th class="text-center">환산결석</th>
+                  <th class="text-center">총결석</th>
+                  <th class="text-center">미완료(?)</th>
+                  <th class="text-center">출석률</th>
+                  <th class="text-center">80%충족</th>
+                </tr>
+              </thead>
+              <tbody id="reportTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Unit Period Summary -->
+      <div id="unitPeriodSection" style="display:none;margin-top:16px;">
+        <div class="card">
+          <div class="card-header"><i class="fa fa-calendar-week" style="color:#1e3a8a;"></i><h3>단위기간별 집계</h3></div>
+          <div class="table-wrapper" style="border-radius:0 0 12px 12px;border:none;">
+            <table class="data-table" id="unitPeriodTable">
+              <thead>
+                <tr>
+                  <th>단위기간</th><th>기간</th><th class="text-center">교육일수</th>
+                  <th class="text-center">평균 인정출석</th><th class="text-center">평균 출석률</th>
+                  <th class="text-center">80% 충족인원</th><th class="text-center">미완료</th>
+                </tr>
+              </thead>
+              <tbody id="unitPeriodBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script>
+const adminSession = requireAuth();
+if (!adminSession) throw new Error();
+document.getElementById('sidebarUser').textContent = `${adminSession.name} (관리자)`;
+
+let courseData = null, sessions = [], participants = [], enrollments = [], records = [];
+let reportData = [];
+let chartInstances = {};
+
+function doLogout() { if (confirm('로그아웃?')) { clearAuthSession(); window.location.href='login.html'; } }
+
+async function init() {
+  const courses = (await apiGetAll('courses')).filter(c => !c.deleted);
+  const sel = document.getElementById('reportCourse');
+  courses.forEach(c => { sel.innerHTML += `<option value="${c.id}">${escapeHtml(c.name)} (${c.startDate}~${c.endDate})</option>`; });
+
+  const params = new URLSearchParams(window.location.search);
+  const cid = params.get('courseId');
+  if (cid) { sel.value = cid; await onCourseChange(); }
+}
+
+async function onCourseChange() {
+  const courseId = document.getElementById('reportCourse').value;
+  if (!courseId) return;
+
+  const [cRes, sAll, eAll, pAll, aAll] = await Promise.all([
+    apiGetById('courses', courseId),
+    apiGetAll('sessions'),
+    apiGetAll('enrollments'),
+    apiGetAll('participants'),
+    apiGetAll('attendance_records')
+  ]);
+
+  courseData = cRes;
+  sessions = sAll.filter(s => s.courseId === courseId).sort((a,b)=>a.date.localeCompare(b.date));
+  enrollments = eAll.filter(e => e.courseId === courseId && !e.deleted);
+  participants = enrollments.map(e => pAll.find(p => p.id === e.participantId)).filter(Boolean);
+  records = aAll.filter(r => r.courseId === courseId);
+
+  populatePeriodInputs();
+}
+
+function populatePeriodInputs() {
+  if (!sessions.length) return;
+  const activeSess = sessions.filter(s => !s.isInactive && !s.isCancelled);
+  const months = [...new Set(activeSess.map(s => s.date.substring(0,7)))].sort();
+  document.getElementById('reportMonth').innerHTML = months.map(m => `<option value="${m}">${m}</option>`).join('');
+
+  const unitSize = courseData?.unitPeriodDays || 20;
+  let unitHtml = '';
+  for (let i = 0; i < activeSess.length; i += unitSize) {
+    const end = Math.min(i + unitSize - 1, activeSess.length - 1);
+    unitHtml += `<option value="${i}">${Math.floor(i/unitSize)+1}단위기간 (${activeSess[i]?.date}~${activeSess[end]?.date})</option>`;
+  }
+  document.getElementById('reportUnit').innerHTML = unitHtml;
+}
+
+function updatePeriodInputs() {
+  const type = document.getElementById('periodType').value;
+  document.getElementById('monthInput').style.display = type === 'month' ? 'block' : 'none';
+  document.getElementById('unitInput').style.display = type === 'unit' ? 'block' : 'none';
+  document.getElementById('customInput').style.display = type === 'custom' ? 'block' : 'none';
+  document.getElementById('customInput2').style.display = type === 'custom' ? 'block' : 'none';
+}
+
+function getFilteredSessions() {
+  const type = document.getElementById('periodType').value;
+  const activeSess = sessions.filter(s => !s.isInactive && !s.isCancelled).sort((a,b)=>a.date.localeCompare(b.date));
+
+  if (type === 'month') {
+    const m = document.getElementById('reportMonth').value;
+    return activeSess.filter(s => s.date.startsWith(m));
+  } else if (type === 'unit') {
+    const startIdx = parseInt(document.getElementById('reportUnit').value);
+    const unitSize = courseData?.unitPeriodDays || 20;
+    return activeSess.slice(startIdx, startIdx + unitSize);
+  } else if (type === 'custom') {
+    const start = document.getElementById('reportStart').value;
+    const end = document.getElementById('reportEnd').value;
+    return activeSess.filter(s => (!start || s.date >= start) && (!end || s.date <= end));
+  }
+  return activeSess;
+}
+
+function generateReport() {
+  if (!courseData || !participants.length) { showToast('과정을 먼저 선택하세요.', 'warning'); return; }
+  const filteredSess = getFilteredSessions();
+  const incMode = document.getElementById('reportIncomplete').value;
+  const c = courseData;
+
+  reportData = participants.map(p => {
+    const pRecords = filteredSess.map(s => {
+      const r = records.find(r => r.sessionId === s.id && r.participantId === p.id);
+      if (!r) return { statusCode: 'X', attendedMinutes: 0, isRecognized: false };
+      if (r.statusCode === '?' && incMode === 'include') return { ...r, statusCode: 'X' };
+      return r;
+    });
+    const summary = calcAttendanceSummary(pRecords, filteredSess.length, {
+      complexWeight: c.complexWeight || 2, completionRate: c.completionRate || 0.8
+    });
+    return { participant: p, summary };
+  });
+
+  renderSummary(filteredSess);
+  renderChart();
+  renderDetailTable();
+  renderUnitPeriods();
+
+  document.getElementById('reportSummary').style.display = 'block';
+  document.getElementById('chartSection').style.display = 'block';
+  document.getElementById('reportTable').style.display = 'block';
+  document.getElementById('unitPeriodSection').style.display = 'block';
+}
+
+function renderSummary(filteredSess) {
+  const ptLabel = document.getElementById('periodType').value;
+  const totalSessions = filteredSess.length;
+  const passCount = reportData.filter(d => d.summary.isCompleted).length;
+  const avgRate = reportData.length > 0
+    ? (reportData.reduce((s, d) => s + d.summary.attendanceRate, 0) / reportData.length).toFixed(1) : 0;
+  const incompleteCount = reportData.reduce((s, d) => s + d.summary.incomplete, 0);
+
+  const periodStart = filteredSess.length > 0 ? filteredSess[0].date : '';
+  const periodEnd = filteredSess.length > 0 ? filteredSess[filteredSess.length-1].date : '';
+
+  document.getElementById('reportTitle').textContent =
+    `집계 결과 - ${courseData.name} (${periodStart}~${periodEnd})`;
+
+  document.getElementById('reportStats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">총 교육일수</div><div class="stat-value">${totalSessions}</div></div>
+    <div class="stat-card"><div class="stat-label">수강인원</div><div class="stat-value">${reportData.length}</div></div>
+    <div class="stat-card"><div class="stat-label">평균 출석률</div>
+      <div class="stat-value" style="color:${parseFloat(avgRate)>=80?'#16a34a':'#dc2626'}">${avgRate}%</div></div>
+    <div class="stat-card"><div class="stat-label">80% 충족 인원</div>
+      <div class="stat-value" style="color:#16a34a;">${passCount}명</div>
+      <div class="stat-sub">미충족 ${reportData.length - passCount}명</div></div>
+    <div class="stat-card"><div class="stat-label">미완료(?) 건수</div>
+      <div class="stat-value" style="color:${incompleteCount>0?'#dc2626':'#16a34a'}">${incompleteCount}</div></div>`;
+
+  if (incompleteCount > 0) {
+    document.getElementById('reportIncompleteAlert').style.display = 'block';
+    document.getElementById('reportIncompleteAlert').innerHTML = `
+      <div class="alert alert-warning"><i class="fa fa-triangle-exclamation"></i>
+      미완료(?) 건수 <strong>${incompleteCount}건</strong>이 있습니다. 출결 현황에서 확인 후 확정하세요.
+      현재 설정: "${document.getElementById('reportIncomplete').value === 'exclude' ? '미확정 제외' : '결석 포함'}"
+      </div>`;
+  }
+}
+
+function renderChart() {
+  const rates = reportData.map(d => d.summary.attendanceRate);
+  const below60 = rates.filter(r => r < 60).length;
+  const s6080 = rates.filter(r => r >= 60 && r < 80).length;
+  const above80 = rates.filter(r => r >= 80).length;
+
+  // Pie chart
+  if (chartInstances.pie) chartInstances.pie.destroy();
+  chartInstances.pie = new Chart(document.getElementById('attendanceChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['80% 이상(충족)', '60~80%(미달)', '60% 미만'],
+      datasets: [{ data: [above80, s6080, below60], backgroundColor: ['#22c55e','#f59e0b','#ef4444'], borderWidth: 0 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
+  });
+
+  // Bar chart (participant rates)
+  if (chartInstances.bar) chartInstances.bar.destroy();
+  const labels = reportData.map(d => d.participant.name);
+  const values = reportData.map(d => d.summary.attendanceRate);
+  const colors = values.map(v => v >= 80 ? '#22c55e' : v >= 60 ? '#f59e0b' : '#ef4444');
+
+  document.getElementById('participantChart').parentElement.style.height = Math.max(280, reportData.length * 24 + 60) + 'px';
+  chartInstances.bar = new Chart(document.getElementById('participantChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label: '출석률(%)', data: values, backgroundColor: colors, borderRadius: 4 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      scales: { x: { min: 0, max: 100, ticks: { callback: v => v + '%' } } },
+      plugins: { legend: { display: false }, annotation: {} }
+    }
+  });
+}
+
+function renderDetailTable() {
+  const showFail = document.getElementById('showOnlyFail').checked;
+  const data = showFail ? reportData.filter(d => !d.summary.isCompleted) : reportData;
+
+  document.getElementById('reportTableBody').innerHTML = data.map(d => {
+    const { participant: p, summary: s } = d;
+    const passClass = s.isCompleted ? 'pass-cell' : 'fail-cell';
+    return `<tr>
+      <td><strong>${escapeHtml(p.name)}</strong></td>
+      <td>${p.birthDate || '-'}</td>
+      <td class="text-center">${s.totalSessions}</td>
+      <td class="text-center" style="color:#22c55e;font-weight:700;">${s.recognized}</td>
+      <td class="text-center" style="color:#dc2626;">${s.absenceRaw}</td>
+      <td class="text-center" style="color:#f59e0b;">${s.lateCount}</td>
+      <td class="text-center" style="color:#f97316;">${s.earlyCount}</td>
+      <td class="text-center" style="color:#ef4444;">${s.complexCount}</td>
+      <td class="text-center">${s.absenceConverted}<span style="font-size:10px;color:#94a3b8;"> (${s.remainToConvert}/3)</span></td>
+      <td class="text-center" style="color:#dc2626;font-weight:700;">${s.absenceTotal}</td>
+      <td class="text-center" style="color:${s.incomplete>0?'#dc2626':'#64748b'};">${s.incomplete}</td>
+      <td class="text-center ${passClass}">${s.attendanceRate}%</td>
+      <td class="text-center ${passClass}">${s.isCompleted ? '✓ 충족' : '✗ 미달'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filterReport() { renderDetailTable(); }
+
+function renderUnitPeriods() {
+  const c = courseData;
+  const unitSize = c.unitPeriodDays || 20;
+  const activeSess = sessions.filter(s => !s.isInactive && !s.isCancelled).sort((a,b)=>a.date.localeCompare(b.date));
+  const incMode = document.getElementById('reportIncomplete').value;
+
+  const units = [];
+  for (let i = 0; i < activeSess.length; i += unitSize) {
+    const uSessions = activeSess.slice(i, i + unitSize);
+    let totalRecognized = 0, totalIncomplete = 0, passCount = 0;
+    participants.forEach(p => {
+      const pRecords = uSessions.map(s => {
+        const r = records.find(r => r.sessionId === s.id && r.participantId === p.id);
+        if (!r) return { statusCode: 'X', attendedMinutes: 0, isRecognized: false };
+        if (r.statusCode === '?' && incMode === 'include') return { ...r, statusCode: 'X' };
+        return r;
+      });
+      const sum = calcAttendanceSummary(pRecords, uSessions.length, {
+        complexWeight: c.complexWeight || 2, completionRate: c.completionRate || 0.8
+      });
+      totalRecognized += sum.recognized;
+      totalIncomplete += sum.incomplete;
+      if (sum.isCompleted) passCount++;
+    });
+    const avgRecog = participants.length > 0 ? (totalRecognized / participants.length).toFixed(1) : 0;
+    const avgRate = uSessions.length > 0 && participants.length > 0
+      ? (totalRecognized / (uSessions.length * participants.length) * 100).toFixed(1) : 0;
+    units.push({
+      no: Math.floor(i/unitSize)+1, start: uSessions[0]?.date, end: uSessions[uSessions.length-1]?.date,
+      count: uSessions.length, avgRecog, avgRate, passCount, incomplete: totalIncomplete
+    });
+  }
+
+  document.getElementById('unitPeriodBody').innerHTML = units.map(u => `
+    <tr>
+      <td><strong>${u.no}단위기간</strong></td>
+      <td>${u.start}~${u.end}</td>
+      <td class="text-center">${u.count}</td>
+      <td class="text-center">${u.avgRecog}</td>
+      <td class="text-center" style="color:${parseFloat(u.avgRate)>=80?'#16a34a':'#dc2626'};font-weight:700;">${u.avgRate}%</td>
+      <td class="text-center">${u.passCount}/${participants.length}명</td>
+      <td class="text-center" style="color:${u.incomplete>0?'#dc2626':'#64748b'};">${u.incomplete}</td>
+    </tr>`).join('');
+}
+
+// ===== Downloads =====
+function downloadAll() {
+  if (!courseData || !participants.length) { showToast('과정을 먼저 선택하세요.', 'warning'); return; }
+  const filteredSess = getFilteredSessions();
+  const incMode = document.getElementById('reportIncomplete').value;
+  const c = courseData;
+
+  const rows = [
+    ['성남여성인력개발센터 직업교육훈련 출석부'],
+    [`과정명: ${c.name}`, `기간: ${c.startDate}~${c.endDate}`, `참여인원: ${participants.length}명`],
+    [`출력일: ${getTodaySeoul()}`],
+    [],
+    ['성명', '생년월일', ...filteredSess.map(s => `${s.date}(${getDayOfWeekKR(s.date)})`),
+      '인정출석', '원결석', '지각', '조퇴', '복합', '환산결석', '총결석', '출석률', '수료여부']
+  ];
+
+  participants.forEach(p => {
+    const row = [p.name, p.birthDate || ''];
+    filteredSess.forEach(s => {
+      const r = records.find(r => r.sessionId === s.id && r.participantId === p.id);
+      row.push(r ? r.statusCode : 'X');
+    });
+    const pRecords = filteredSess.map(s => {
+      const r = records.find(r => r.sessionId === s.id && r.participantId === p.id);
+      if (!r) return { statusCode: 'X', attendedMinutes: 0, isRecognized: false };
+      if (r.statusCode === '?' && incMode === 'include') return { ...r, statusCode: 'X' };
+      return r;
+    });
+    const summary = calcAttendanceSummary(pRecords, filteredSess.length, { complexWeight: c.complexWeight||2, completionRate: c.completionRate||0.8 });
+    row.push(summary.recognized, summary.absenceRaw, summary.lateCount, summary.earlyCount,
+      summary.complexCount, summary.absenceConverted, summary.absenceTotal,
+      summary.attendanceRate+'%', summary.isCompleted?'수료예정':'미충족');
+    rows.push(row);
+  });
+
+  downloadExcel(rows, '전체출석부', `출석부_전체_${c.name}.xlsx`);
+}
+
+function downloadSummary() {
+  if (!reportData.length) { generateReport(); return; }
+  const c = courseData;
+  const rows = [
+    ['성남여성인력개발센터 직업교육훈련 출결 집계 요약'],
+    [`과정: ${c.name}`, `출력일: ${getTodaySeoul()}`],
+    [],
+    ['성명', '생년월일', '총교육일', '인정출석', '원결석', '지각', '조퇴', '복합(◎▲)', '환산결석', '총결석', '미완료(?)', '출석률', '수료여부'],
+    ...reportData.map(d => {
+      const p = d.participant, s = d.summary;
+      return [p.name, p.birthDate||'', s.totalSessions, s.recognized, s.absenceRaw, s.lateCount, s.earlyCount,
+        s.complexCount, s.absenceConverted, s.absenceTotal, s.incomplete, s.attendanceRate+'%', s.isCompleted?'수료예정':'미충족'];
+    })
+  ];
+  downloadExcel(rows, '집계요약', `출결집계_${c.name}.xlsx`);
+}
+
+function downloadUnitSummary() {
+  if (!courseData) { showToast('과정을 선택하세요.', 'warning'); return; }
+  const c = courseData;
+  const unitSize = c.unitPeriodDays || 20;
+  const activeSess = sessions.filter(s => !s.isInactive && !s.isCancelled).sort((a,b)=>a.date.localeCompare(b.date));
+  const incMode = document.getElementById('reportIncomplete').value;
+
+  const rows = [
+    ['성남여성인력개발센터 단위기간별 출결 집계'],
+    [`과정: ${c.name}`, `출력일: ${getTodaySeoul()}`],
+    []
+  ];
+
+  for (let i = 0; i < activeSess.length; i += unitSize) {
+    const uSessions = activeSess.slice(i, i + unitSize);
+    const periodNo = Math.floor(i/unitSize)+1;
+    rows.push([], [`▶ ${periodNo}단위기간 (${uSessions[0]?.date}~${uSessions[uSessions.length-1]?.date})`]);
+    rows.push(['성명', '생년월일', '교육일수', '인정출석', '원결석', '지각', '조퇴', '복합', '환산결석', '총결석', '미완료', '출석률', '수료']);
+
+    participants.forEach(p => {
+      const pRecs = uSessions.map(s => {
+        const r = records.find(r => r.sessionId === s.id && r.participantId === p.id);
+        if (!r) return { statusCode: 'X', attendedMinutes: 0, isRecognized: false };
+        if (r.statusCode === '?' && incMode === 'include') return { ...r, statusCode: 'X' };
+        return r;
+      });
+      const s = calcAttendanceSummary(pRecs, uSessions.length, { complexWeight: c.complexWeight||2, completionRate: c.completionRate||0.8 });
+      rows.push([p.name, p.birthDate||'', s.totalSessions, s.recognized, s.absenceRaw, s.lateCount, s.earlyCount,
+        s.complexCount, s.absenceConverted, s.absenceTotal, s.incomplete, s.attendanceRate+'%', s.isCompleted?'O':'X']);
+    });
+  }
+
+  downloadExcel(rows, '단위기간', `단위기간별_${c.name}.xlsx`);
+}
+
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>공휴일 관리 - 성남여성인력개발센터</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><span>🏫</span></div>
+      <div><div class="logo-text">성남여성인력개발센터</div><div class="logo-sub">출결관리시스템</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">메인</div>
+      <a href="index.html" class="nav-item"><i class="fa fa-home"></i> 대시보드</a>
+      <a href="courses.html" class="nav-item"><i class="fa fa-book"></i> 과정 관리</a>
+      <a href="participants.html" class="nav-item"><i class="fa fa-users"></i> 참여자 관리</a>
+      <div class="nav-section">출결</div>
+      <a href="qr-admin.html" class="nav-item"><i class="fa fa-qrcode"></i> QR 코드 발급</a>
+      <a href="attendance.html" class="nav-item"><i class="fa fa-calendar-check"></i> 출결 현황</a>
+      <div class="nav-section">보고서</div>
+      <a href="report.html" class="nav-item"><i class="fa fa-chart-bar"></i> 리포트/다운로드</a>
+      <a href="audit-log.html" class="nav-item"><i class="fa fa-history"></i> 감사 로그</a>
+      <div class="nav-section">시스템</div>
+      <a href="settings.html" class="nav-item"><i class="fa fa-cog"></i> 시스템 설정</a>
+      <a href="holidays.html" class="nav-item active"><i class="fa fa-calendar-xmark"></i> 공휴일 관리</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="sidebarUser" style="margin-bottom:8px;font-weight:600;"></div>
+      <a href="#" onclick="doLogout()" style="color:rgba(255,255,255,.6);font-size:11px;"><i class="fa fa-sign-out-alt"></i> 로그아웃</a>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="top-header">
+      <span class="page-title"><i class="fa fa-calendar-xmark" style="color:#1e3a8a;"></i> 공휴일 관리</span>
+      <div class="header-actions">
+        <button class="btn btn-primary" onclick="openAddHoliday()"><i class="fa fa-plus"></i> 공휴일 추가</button>
+      </div>
+    </header>
+
+    <main class="page-body fade-in">
+      <div class="alert alert-info mb-4">
+        <i class="fa fa-info-circle"></i>
+        공휴일/대체휴일/근로자의날은 교육일 자동 생성 시 제외됩니다. 과정 생성 전 반드시 최신 공휴일을 확인하세요.
+        <strong>2025~2026년 공휴일이 기본 탑재</strong>되어 있습니다.
+      </div>
+
+      <div class="filter-bar">
+        <select class="form-control" id="yearFilter" style="width:120px;" onchange="loadHolidays()">
+          <option value="2025">2025년</option>
+          <option value="2026">2026년</option>
+          <option value="2027">2027년</option>
+        </select>
+        <select class="form-control" id="typeFilter" style="width:140px;" onchange="filterHolidays()">
+          <option value="">전체 유형</option>
+          <option value="공휴일">공휴일</option>
+          <option value="대체휴일">대체휴일</option>
+          <option value="근로자의날">근로자의날</option>
+        </select>
+        <button class="btn btn-secondary" onclick="loadHolidays()"><i class="fa fa-refresh"></i> 새로고침</button>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <i class="fa fa-calendar" style="color:#1e3a8a;"></i><h3>공휴일 목록</h3>
+          <span id="hCount" class="badge badge-secondary" style="margin-left:auto;"></span>
+        </div>
+        <div class="table-wrapper" style="border-radius:0 0 12px 12px;border:none;">
+          <table class="data-table">
+            <thead>
+              <tr><th>날짜</th><th>요일</th><th>공휴일명</th><th>유형</th><th>출처</th><th></th></tr>
+            </thead>
+            <tbody id="hTableBody">
+              <tr><td colspan="6" class="text-center" style="padding:40px;color:#94a3b8;"><i class="fa fa-spinner fa-spin"></i></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Add Holiday Modal -->
+<div class="modal-overlay" id="addHolidayModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="hModalTitle">공휴일 추가</h3>
+      <button class="modal-close" onclick="closeModal('addHolidayModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label required">날짜</label>
+          <input type="date" id="hDate" class="form-control"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label required">공휴일명</label>
+          <input type="text" id="hName" class="form-control" placeholder="예: 어린이날"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">유형</label>
+        <select id="hType" class="form-control">
+          <option value="공휴일">공휴일</option>
+          <option value="대체휴일">대체휴일</option>
+          <option value="근로자의날">근로자의날</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('addHolidayModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveHoliday()"><i class="fa fa-save"></i> 저장</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script>
+const adminSession = requireAuth();
+if (!adminSession) throw new Error();
+document.getElementById('sidebarUser').textContent = `${adminSession.name} (관리자)`;
+let allHolidays = [], editHolidayId = null;
+
+function doLogout() { if (confirm('로그아웃?')) { clearAuthSession(); window.location.href='login.html'; } }
+
+// Set current year
+document.getElementById('yearFilter').value = new Date().getFullYear().toString();
+
+async function loadHolidays() {
+  const year = parseInt(document.getElementById('yearFilter').value);
+  const allH = await apiGetAll('holidays');
+  allHolidays = allH.filter(h => h.year == year || (!h.year && h.date?.startsWith(year))).sort((a,b)=>a.date.localeCompare(b.date));
+  // Reset holiday cache
+  resetHolidaySet();
+  filterHolidays();
+}
+
+function filterHolidays() {
+  const typeF = document.getElementById('typeFilter').value;
+  const filtered = typeF ? allHolidays.filter(h => h.type === typeF) : allHolidays;
+  document.getElementById('hCount').textContent = filtered.length + '일';
+
+  const typeColors = { '공휴일': '#ef4444', '대체휴일': '#f97316', '근로자의날': '#3b82f6' };
+  const tbody = document.getElementById('hTableBody');
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding:40px;color:#94a3b8;">공휴일 없음</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(h => {
+    const color = typeColors[h.type] || '#64748b';
+    return `<tr>
+      <td><strong>${h.date}</strong></td>
+      <td>${getDayOfWeekKR(h.date)}요일</td>
+      <td>${escapeHtml(h.name)}</td>
+      <td><span class="badge" style="background:${color}22;color:${color};">${h.type}</span></td>
+      <td style="font-size:11px;color:#94a3b8;">${h.source || '-'}</td>
+      <td>
+        <div style="display:flex;gap:4px;">
+          <button class="btn btn-secondary btn-sm" onclick="editHoliday('${h.id}')"><i class="fa fa-edit"></i></button>
+          <button class="btn btn-danger btn-sm" onclick="deleteHoliday('${h.id}','${escapeHtml(h.name)}')"><i class="fa fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openAddHoliday() {
+  editHolidayId = null;
+  document.getElementById('hModalTitle').textContent = '공휴일 추가';
+  document.getElementById('hDate').value = '';
+  document.getElementById('hName').value = '';
+  document.getElementById('hType').value = '공휴일';
+  openModal('addHolidayModal');
+}
+
+function editHoliday(id) {
+  editHolidayId = id;
+  const h = allHolidays.find(h => h.id === id);
+  if (!h) return;
+  document.getElementById('hModalTitle').textContent = '공휴일 수정';
+  document.getElementById('hDate').value = h.date;
+  document.getElementById('hName').value = h.name;
+  document.getElementById('hType').value = h.type;
+  openModal('addHolidayModal');
+}
+
+async function saveHoliday() {
+  const date = document.getElementById('hDate').value;
+  const name = document.getElementById('hName').value.trim();
+  const type = document.getElementById('hType').value;
+  if (!date || !name) { showToast('날짜와 공휴일명을 입력하세요.', 'warning'); return; }
+  const year = parseInt(date.substring(0,4));
+  const data = { date, name, type, year, source: 'manual', fetchedAt: new Date().toISOString() };
+
+  try {
+    if (editHolidayId) {
+      await apiPut('holidays', editHolidayId, { ...data, id: editHolidayId });
+      await writeAuditLog({ actorId: adminSession.id, actorName: adminSession.name, action: 'UPDATE_HOLIDAY', entityType: 'holiday', entityId: editHolidayId, after: data, reason: '공휴일 수정' });
+      showToast('수정되었습니다.', 'success');
+    } else {
+      await apiPost('holidays', { ...data, id: generateUUID() });
+      showToast('추가되었습니다.', 'success');
+    }
+    resetHolidaySet();
+    closeModal('addHolidayModal');
+    loadHolidays();
+  } catch (err) {
+    showToast('저장 실패: ' + err.message, 'error');
+  }
+}
+
+async function deleteHoliday(id, name) {
+  if (!confirm(`"${name}"을 공휴일에서 삭제하시겠습니까?`)) return;
+  await apiDelete('holidays', id);
+  resetHolidaySet();
+  showToast('삭제되었습니다.', 'success');
+  loadHolidays();
+}
+
+function escapeHtml(s) { return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+loadHolidays();
+</script>
+</body>
+</html>

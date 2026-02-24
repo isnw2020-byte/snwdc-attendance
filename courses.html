@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>과정 관리 - 성남여성인력개발센터 출결시스템</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><span>🏫</span></div>
+      <div><div class="logo-text">성남여성인력개발센터</div><div class="logo-sub">출결관리시스템</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">메인</div>
+      <a href="index.html" class="nav-item"><i class="fa fa-home"></i> 대시보드</a>
+      <a href="courses.html" class="nav-item active"><i class="fa fa-book"></i> 과정 관리</a>
+      <a href="participants.html" class="nav-item"><i class="fa fa-users"></i> 참여자 관리</a>
+      <div class="nav-section">출결</div>
+      <a href="qr-admin.html" class="nav-item"><i class="fa fa-qrcode"></i> QR 코드 발급</a>
+      <a href="attendance.html" class="nav-item"><i class="fa fa-calendar-check"></i> 출결 현황</a>
+      <div class="nav-section">보고서</div>
+      <a href="report.html" class="nav-item"><i class="fa fa-chart-bar"></i> 리포트/다운로드</a>
+      <a href="audit-log.html" class="nav-item"><i class="fa fa-history"></i> 감사 로그</a>
+      <div class="nav-section">시스템</div>
+      <a href="settings.html" class="nav-item"><i class="fa fa-cog"></i> 시스템 설정</a>
+      <a href="holidays.html" class="nav-item"><i class="fa fa-calendar-xmark"></i> 공휴일 관리</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="sidebarUser" style="margin-bottom:8px;font-weight:600;"></div>
+      <a href="#" onclick="doLogout()" style="color:rgba(255,255,255,.6);font-size:11px;"><i class="fa fa-sign-out-alt"></i> 로그아웃</a>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="top-header">
+      <span class="page-title"><i class="fa fa-book" style="color:#1e3a8a;"></i> 과정 관리</span>
+      <div class="header-actions">
+        <button class="btn btn-primary" onclick="openCourseModal()">
+          <i class="fa fa-plus"></i> 과정 추가
+        </button>
+      </div>
+    </header>
+
+    <main class="page-body fade-in">
+      <!-- Filter Bar -->
+      <div class="filter-bar">
+        <div class="search-input-wrap">
+          <i class="fa fa-search"></i>
+          <input type="text" class="form-control search-input" id="searchInput"
+            placeholder="과정명 검색..." oninput="filterCourses()"/>
+        </div>
+        <select class="form-control" id="statusFilter" style="width:130px;" onchange="filterCourses()">
+          <option value="all">전체 상태</option>
+          <option value="운영중">운영중</option>
+          <option value="예정">예정</option>
+          <option value="종료">종료</option>
+        </select>
+        <button class="btn btn-secondary" onclick="loadCourses()">
+          <i class="fa fa-refresh"></i> 새로고침
+        </button>
+      </div>
+
+      <!-- Course Table -->
+      <div class="card">
+        <div class="card-header">
+          <i class="fa fa-list" style="color:#1e3a8a;"></i>
+          <h3>과정 목록</h3>
+          <span id="courseCount" class="badge badge-secondary" style="margin-left:auto;"></span>
+        </div>
+        <div class="table-wrapper" style="border-radius:0 0 12px 12px;border:none;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>과정명</th>
+                <th>상태</th>
+                <th>개강일</th>
+                <th>종료일</th>
+                <th class="text-center">총 회차</th>
+                <th class="text-center">참여인원</th>
+                <th class="text-center">시작시간</th>
+                <th class="text-center">평균 출석률</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="coursesTableBody">
+              <tr><td colspan="9" class="text-center" style="padding:40px;color:#94a3b8;">
+                <i class="fa fa-spinner fa-spin"></i> 로딩 중...
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Course Modal -->
+<div class="modal-overlay" id="courseModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3 id="courseModalTitle">과정 추가</h3>
+      <button class="modal-close" onclick="closeModal('courseModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('basic')">기본 정보</button>
+        <button class="tab-btn" onclick="switchTab('sessions')">교육일 관리</button>
+        <button class="tab-btn" onclick="switchTab('enrollments')">참여자 관리</button>
+      </div>
+
+      <!-- Basic Info Tab -->
+      <div class="tab-panel active" id="tab-basic">
+        <form id="courseForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label required">과정명</label>
+              <input type="text" id="fCourseName" class="form-control" placeholder="예: 사무행정 실무과정 1기" required/>
+            </div>
+            <div class="form-group">
+              <label class="form-label required">상태</label>
+              <select id="fStatus" class="form-control">
+                <option value="예정">예정</option>
+                <option value="운영중" selected>운영중</option>
+                <option value="종료">종료</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label required">개강일</label>
+              <input type="date" id="fStartDate" class="form-control" required/>
+            </div>
+            <div class="form-group">
+              <label class="form-label required">종료일</label>
+              <input type="date" id="fEndDate" class="form-control" required/>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label required">수업 시작시간</label>
+              <input type="time" id="fStartTime" class="form-control" value="09:00" required/>
+              <span class="form-hint">종료시간은 시작 +4시간 자동 계산</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">1일 수업시간(분)</label>
+              <input type="number" id="fDailyMinutes" class="form-control" value="240" min="60" max="480"/>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">최대 참여인원</label>
+              <input type="number" id="fMaxParticipants" class="form-control" value="20" min="1" max="100"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">지각 기준(분)</label>
+              <input type="number" id="fLateGrace" class="form-control" value="10" min="0" max="30"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">조퇴 기준(분)</label>
+              <input type="number" id="fEarlyGrace" class="form-control" value="10" min="0" max="30"/>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">인정 기준(%)</label>
+              <input type="number" id="fRecogRate" class="form-control" value="50" min="1" max="100"/>
+              <span class="form-hint">참여시간이 수업시간의 몇 % 이상이면 인정</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">수료 기준(%)</label>
+              <input type="number" id="fCompletionRate" class="form-control" value="80" min="1" max="100"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">복합(◎▲) 환산 가중치</label>
+              <select id="fComplexWeight" class="form-control">
+                <option value="2" selected>2 (지각1+조퇴1)</option>
+                <option value="1">1 (복합1로 계산)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">단위기간 회차 수</label>
+            <input type="number" id="fUnitPeriod" class="form-control" value="20" min="1" max="100"/>
+            <span class="form-hint">수당 지급 참고용 단위기간 (기본: 교육일 20회)</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">비고</label>
+            <textarea id="fNote" class="form-control" rows="2" placeholder="기타 참고사항"></textarea>
+          </div>
+          <div id="sessionPreview" style="display:none;" class="alert alert-info mt-2">
+            <i class="fa fa-calendar-check"></i>
+            <span id="sessionPreviewText"></span>
+          </div>
+        </form>
+      </div>
+
+      <!-- Sessions Tab -->
+      <div class="tab-panel" id="tab-sessions">
+        <div class="alert alert-info">
+          <i class="fa fa-info-circle"></i>
+          교육일은 개강일~종료일 사이 평일(월~금) 기준 자동 생성되며, 공휴일은 자동 제외됩니다.
+        </div>
+        <div class="filter-bar">
+          <button class="btn btn-warning btn-sm" onclick="regenerateSessions()">
+            <i class="fa fa-refresh"></i> 교육일 재생성
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="addCancelDay()">
+            <i class="fa fa-plus"></i> 휴강일 추가
+          </button>
+          <select id="sessionMonthFilter" class="form-control" style="width:130px;" onchange="renderSessionList()">
+            <option value="all">전체</option>
+          </select>
+        </div>
+        <div style="max-height:360px;overflow-y:auto;">
+          <table class="data-table" style="font-size:12px;">
+            <thead>
+              <tr>
+                <th>회차</th>
+                <th>날짜</th>
+                <th>요일</th>
+                <th>시작</th>
+                <th>종료</th>
+                <th>상태</th>
+                <th>비고</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="sessionsTableBody">
+              <tr><td colspan="8" class="text-center" style="color:#94a3b8;padding:20px;">
+                과정을 먼저 저장하거나 기간을 입력하세요.
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Enrollments Tab -->
+      <div class="tab-panel" id="tab-enrollments">
+        <div class="filter-bar">
+          <button class="btn btn-primary btn-sm" onclick="openEnrollModal()">
+            <i class="fa fa-user-plus"></i> 참여자 추가
+          </button>
+          <div class="search-input-wrap">
+            <i class="fa fa-search"></i>
+            <input type="text" class="form-control search-input" id="enrollSearch"
+              placeholder="이름 검색..." oninput="filterEnrollments()"/>
+          </div>
+        </div>
+        <div style="max-height:360px;overflow-y:auto;">
+          <table class="data-table" style="font-size:12px;">
+            <thead>
+              <tr>
+                <th>성명</th>
+                <th>생년월일</th>
+                <th>연락처</th>
+                <th>수강상태</th>
+                <th>출석부</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="enrollmentsTableBody">
+              <tr><td colspan="6" class="text-center" style="color:#94a3b8;padding:20px;">
+                과정을 선택하면 참여자 목록이 표시됩니다.
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('courseModal')">취소</button>
+      <button class="btn btn-primary" id="saveCourseBtn" onclick="saveCourse()">
+        <i class="fa fa-save"></i> 저장
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Enroll Participant Modal -->
+<div class="modal-overlay" id="enrollModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>참여자 추가</h3>
+      <button class="modal-close" onclick="closeModal('enrollModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-info">
+        <i class="fa fa-info-circle"></i>
+        기존 참여자 목록에서 선택하거나 새로 등록하세요.
+      </div>
+      <div class="form-group mb-4">
+        <label class="form-label">기존 참여자 검색</label>
+        <input type="text" id="participantSearch" class="form-control"
+          placeholder="이름으로 검색..." oninput="searchParticipants()"/>
+      </div>
+      <div id="participantSearchResults" style="max-height:200px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;"></div>
+      <hr class="divider"/>
+      <details>
+        <summary style="cursor:pointer;font-size:13px;font-weight:600;color:#1e3a8a;padding:8px 0;">
+          <i class="fa fa-user-plus"></i> 새 참여자 직접 등록
+        </summary>
+        <div style="margin-top:12px;">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label required">성명</label>
+              <input type="text" id="newPName" class="form-control" placeholder="이름"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label required">생년월일</label>
+              <input type="date" id="newPBirth" class="form-control"/>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">연락처</label>
+            <input type="tel" id="newPPhone" class="form-control" placeholder="010-0000-0000"/>
+          </div>
+          <button class="btn btn-success btn-sm" onclick="addNewParticipant()">
+            <i class="fa fa-plus"></i> 새 참여자 등록 및 추가
+          </button>
+        </div>
+      </details>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('enrollModal')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- Session Edit Modal -->
+<div class="modal-overlay" id="sessionEditModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>교육일 수정</h3>
+      <button class="modal-close" onclick="closeModal('sessionEditModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">날짜</label>
+          <input type="date" id="seDate" class="form-control" readonly/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">시작시간</label>
+          <input type="time" id="seStartTime" class="form-control"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">종료시간</label>
+          <input type="time" id="seEndTime" class="form-control"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">상태</label>
+        <select id="seStatus" class="form-control">
+          <option value="normal">정상</option>
+          <option value="cancelled">휴강</option>
+          <option value="inactive">비활성</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">비고/사유</label>
+        <input type="text" id="seNote" class="form-control" placeholder="변경 사유를 입력하세요"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('sessionEditModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveSessionEdit()"><i class="fa fa-save"></i> 저장</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script>
+const adminSession = requireAuth();
+if (!adminSession) throw new Error('Not authenticated');
+document.getElementById('sidebarUser').textContent = `${adminSession.name} (관리자)`;
+
+let allCourses = [], allEnrollments = [], allParticipants = [], allSessions = [];
+let currentCourseId = null;
+let currentSessionId = null;
+let courseSessionsCache = [];
+let allParticipantsCache = [];
+let currentEnrollments = [];
+
+function doLogout() {
+  if (confirm('로그아웃 하시겠습니까?')) { clearAuthSession(); window.location.href = 'login.html'; }
+}
+
+// ===== Load =====
+async function loadCourses() {
+  try {
+    const [cAll, eAll, pAll, sAll] = await Promise.all([
+      apiGetAll('courses'),
+      apiGetAll('enrollments'),
+      apiGetAll('participants'),
+      apiGetAll('sessions')
+    ]);
+    allCourses = cAll.filter(c => !c.deleted);
+    allEnrollments = eAll.filter(e => !e.deleted);
+    allParticipants = pAll.filter(p => !p.deleted);
+    allSessions = sAll;
+    allParticipantsCache = allParticipants;
+    filterCourses();
+  } catch (err) {
+    showToast('데이터 로드 실패: ' + err.message, 'error');
+  }
+}
+
+function filterCourses() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const status = document.getElementById('statusFilter').value;
+  let filtered = allCourses;
+  if (status !== 'all') filtered = filtered.filter(c => c.status === status);
+  if (search) filtered = filtered.filter(c => c.name.toLowerCase().includes(search));
+
+  document.getElementById('courseCount').textContent = `${filtered.length}개`;
+
+  const tbody = document.getElementById('coursesTableBody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">
+      <i class="fa fa-book-open"></i><p>조건에 맞는 과정이 없습니다.</p>
+      <button class="btn btn-primary" onclick="openCourseModal()"><i class="fa fa-plus"></i> 과정 추가</button>
+    </div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(c => {
+    const enrollCount = allEnrollments.filter(e => e.courseId === c.id && e.status === '수강중').length;
+    const sessionCount = allSessions.filter(s => s.courseId === c.id && !s.isCancelled && !s.isInactive).length;
+    const statusColor = { '운영중': 'success', '종료': 'secondary', '예정': 'primary' }[c.status] || 'secondary';
+
+    return `<tr>
+      <td>
+        <strong style="cursor:pointer;color:#1e3a8a;" onclick="openCourseModal('${c.id}')">
+          ${escapeHtml(c.name)}
+        </strong>
+      </td>
+      <td><span class="badge badge-${statusColor}">${c.status}</span></td>
+      <td>${c.startDate}</td>
+      <td>${c.endDate}</td>
+      <td class="text-center">${sessionCount}회</td>
+      <td class="text-center">${enrollCount}명 / ${c.maxParticipants || 20}명</td>
+      <td class="text-center">${c.startTime || '09:00'}</td>
+      <td class="text-center">-</td>
+      <td>
+        <div style="display:flex;gap:4px;">
+          <a href="attendance.html?courseId=${c.id}" class="btn btn-primary btn-sm" data-tooltip="출석부"><i class="fa fa-table"></i></a>
+          <button class="btn btn-secondary btn-sm" onclick="openCourseModal('${c.id}')" data-tooltip="수정"><i class="fa fa-edit"></i></button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCourse('${c.id}','${escapeHtml(c.name)}')" data-tooltip="삭제"><i class="fa fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ===== Course Modal =====
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', ['basic','sessions','enrollments'][i] === tab));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (tab === 'sessions' && currentCourseId) loadSessionsTab();
+  if (tab === 'enrollments' && currentCourseId) loadEnrollmentsTab();
+}
+
+function openCourseModal(courseId = null) {
+  currentCourseId = courseId;
+  document.getElementById('courseModalTitle').textContent = courseId ? '과정 수정' : '과정 추가';
+  switchTab('basic');
+
+  if (courseId) {
+    const c = allCourses.find(c => c.id === courseId);
+    if (c) {
+      document.getElementById('fCourseName').value = c.name || '';
+      document.getElementById('fStatus').value = c.status || '운영중';
+      document.getElementById('fStartDate').value = c.startDate || '';
+      document.getElementById('fEndDate').value = c.endDate || '';
+      document.getElementById('fStartTime').value = c.startTime || '09:00';
+      document.getElementById('fDailyMinutes').value = c.dailyMinutes || 240;
+      document.getElementById('fMaxParticipants').value = c.maxParticipants || 20;
+      document.getElementById('fLateGrace').value = c.lateGraceMinutes || 10;
+      document.getElementById('fEarlyGrace').value = c.earlyGraceMinutes || 10;
+      document.getElementById('fRecogRate').value = (c.recognitionRate || 0.5) * 100;
+      document.getElementById('fCompletionRate').value = (c.completionRate || 0.8) * 100;
+      document.getElementById('fComplexWeight').value = c.complexWeight || 2;
+      document.getElementById('fUnitPeriod').value = c.unitPeriodDays || 20;
+      document.getElementById('fNote').value = c.note || '';
+    }
+  } else {
+    document.getElementById('courseForm').reset();
+    document.getElementById('fStartTime').value = '09:00';
+    document.getElementById('fDailyMinutes').value = '240';
+    document.getElementById('fMaxParticipants').value = '20';
+    document.getElementById('fLateGrace').value = '10';
+    document.getElementById('fEarlyGrace').value = '10';
+    document.getElementById('fRecogRate').value = '50';
+    document.getElementById('fCompletionRate').value = '80';
+    document.getElementById('fComplexWeight').value = '2';
+    document.getElementById('fUnitPeriod').value = '20';
+  }
+
+  document.getElementById('sessionPreview').style.display = 'none';
+  openModal('courseModal');
+}
+
+// Preview sessions when dates change
+['fStartDate', 'fEndDate', 'fStartTime'].forEach(id => {
+  document.getElementById(id).addEventListener('change', previewSessions);
+});
+
+async function previewSessions() {
+  const start = document.getElementById('fStartDate').value;
+  const end = document.getElementById('fEndDate').value;
+  if (!start || !end) return;
+  if (new Date(start) > new Date(end)) return;
+
+  const holidays = await loadHolidaySet();
+  const sessions = generateSessions(start, end, 'preview', document.getElementById('fStartTime').value, parseInt(document.getElementById('fDailyMinutes').value) || 240, holidays);
+
+  document.getElementById('sessionPreview').style.display = 'flex';
+  document.getElementById('sessionPreviewText').textContent =
+    `교육일 자동 생성: ${sessions.length}회 (${start} ~ ${end}, 공휴일 ${holidays.size}일 제외)`;
+}
+
+async function saveCourse() {
+  const name = document.getElementById('fCourseName').value.trim();
+  const startDate = document.getElementById('fStartDate').value;
+  const endDate = document.getElementById('fEndDate').value;
+  const startTime = document.getElementById('fStartTime').value;
+
+  if (!name || !startDate || !endDate || !startTime) {
+    showToast('필수 항목을 입력하세요.', 'warning'); return;
+  }
+  if (new Date(startDate) > new Date(endDate)) {
+    showToast('종료일이 개강일보다 앞설 수 없습니다.', 'warning'); return;
+  }
+
+  const btn = document.getElementById('saveCourseBtn');
+  btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 저장 중...';
+
+  const courseData = {
+    name, startDate, endDate, startTime,
+    status: document.getElementById('fStatus').value,
+    dailyMinutes: parseInt(document.getElementById('fDailyMinutes').value) || 240,
+    maxParticipants: parseInt(document.getElementById('fMaxParticipants').value) || 20,
+    lateGraceMinutes: parseInt(document.getElementById('fLateGrace').value) || 10,
+    earlyGraceMinutes: parseInt(document.getElementById('fEarlyGrace').value) || 10,
+    recognitionRate: (parseInt(document.getElementById('fRecogRate').value) || 50) / 100,
+    completionRate: (parseInt(document.getElementById('fCompletionRate').value) || 80) / 100,
+    complexWeight: parseInt(document.getElementById('fComplexWeight').value) || 2,
+    unitPeriodDays: parseInt(document.getElementById('fUnitPeriod').value) || 20,
+    note: document.getElementById('fNote').value,
+    deleted: false
+  };
+
+  try {
+    let savedCourse;
+    if (currentCourseId) {
+      const before = allCourses.find(c => c.id === currentCourseId);
+      savedCourse = await apiPut('courses', currentCourseId, { ...courseData, id: currentCourseId });
+      await writeAuditLog({
+        actorId: adminSession.id, actorName: adminSession.name,
+        action: 'UPDATE_COURSE', entityType: 'course', entityId: currentCourseId,
+        before, after: courseData, reason: '과정 정보 수정'
+      });
+      // If dates changed, regenerate sessions
+      if (before && (before.startDate !== startDate || before.endDate !== endDate)) {
+        await regenerateSessions(currentCourseId, courseData);
+      }
+      showToast('과정이 수정되었습니다.', 'success');
+    } else {
+      const id = generateUUID();
+      savedCourse = await apiPost('courses', { ...courseData, id });
+      currentCourseId = savedCourse.id || id;
+      // Generate sessions
+      await generateAndSaveSessions(currentCourseId, courseData);
+      await writeAuditLog({
+        actorId: adminSession.id, actorName: adminSession.name,
+        action: 'CREATE_COURSE', entityType: 'course', entityId: currentCourseId,
+        after: courseData, reason: '과정 신규 등록'
+      });
+      showToast('과정이 등록되었습니다.', 'success');
+    }
+    await loadCourses();
+    closeModal('courseModal');
+  } catch (err) {
+    showToast('저장 실패: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.innerHTML = '<i class="fa fa-save"></i> 저장';
+  }
+}
+
+async function generateAndSaveSessions(courseId, courseData) {
+  const holidays = await loadHolidaySet();
+  const sessions = generateSessions(
+    courseData.startDate, courseData.endDate, courseId,
+    courseData.startTime, courseData.dailyMinutes || 240, holidays
+  );
+  for (const s of sessions) {
+    await apiPost('sessions', s);
+  }
+  return sessions;
+}
+
+async function regenerateSessions(courseId, courseData) {
+  if (!courseId) courseId = currentCourseId;
+  if (!courseData) {
+    const c = allCourses.find(c => c.id === courseId);
+    if (!c) return;
+    courseData = c;
+  }
+
+  if (!confirm(`교육일을 재생성합니다.\n\n⚠️ 기존 교육일의 출결 데이터는 보호됩니다.\n새로 생긴 날은 추가되고, 제외된 날은 비활성 처리됩니다.\n\n계속하시겠습니까?`)) return;
+
+  try {
+    const holidays = await loadHolidaySet();
+    const newSessions = generateSessions(
+      courseData.startDate, courseData.endDate, courseId,
+      courseData.startTime || '09:00', courseData.dailyMinutes || 240, holidays
+    );
+
+    const existingSessions = allSessions.filter(s => s.courseId === courseId);
+    const newDates = new Set(newSessions.map(s => s.date));
+    const existingDates = new Set(existingSessions.map(s => s.date));
+
+    // Deactivate removed sessions (protect existing attendance data)
+    for (const s of existingSessions) {
+      if (!newDates.has(s.date) && !s.isInactive) {
+        await apiPatch('sessions', s.id, { isInactive: true, note: '기간 변경으로 비활성 처리' });
+      }
+    }
+
+    // Add new sessions
+    let newNo = existingSessions.length > 0 ? Math.max(...existingSessions.map(s => s.sessionNo || 0)) + 1 : 1;
+    for (const ns of newSessions) {
+      if (!existingDates.has(ns.date)) {
+        await apiPost('sessions', { ...ns, sessionNo: newNo++ });
+      }
+    }
+
+    await writeAuditLog({
+      actorId: adminSession.id, actorName: adminSession.name,
+      action: 'REGENERATE_SESSIONS', entityType: 'course', entityId: courseId,
+      reason: '교육일 재생성'
+    });
+
+    showToast('교육일이 재생성되었습니다.', 'success');
+    await loadCourses();
+    if (currentCourseId === courseId) loadSessionsTab();
+  } catch (err) {
+    showToast('재생성 실패: ' + err.message, 'error');
+  }
+}
+
+async function deleteCourse(courseId, courseName) {
+  if (!confirm(`"${courseName}" 과정을 삭제하시겠습니까?\n(소프트 삭제: 데이터는 보존됩니다)`)) return;
+  try {
+    await apiPatch('courses', courseId, { deleted: true });
+    await writeAuditLog({
+      actorId: adminSession.id, actorName: adminSession.name,
+      action: 'DELETE_COURSE', entityType: 'course', entityId: courseId, reason: '과정 삭제'
+    });
+    showToast('과정이 삭제되었습니다.', 'success');
+    loadCourses();
+  } catch (err) {
+    showToast('삭제 실패: ' + err.message, 'error');
+  }
+}
+
+// ===== Sessions Tab =====
+async function loadSessionsTab() {
+  if (!currentCourseId) return;
+  const sess = allSessions.filter(s => s.courseId === currentCourseId);
+  courseSessionsCache = sess.sort((a, b) => a.date.localeCompare(b.date));
+
+  // Populate month filter
+  const months = [...new Set(sess.map(s => s.date.substring(0, 7)))].sort();
+  const mFilter = document.getElementById('sessionMonthFilter');
+  mFilter.innerHTML = '<option value="all">전체 월</option>' +
+    months.map(m => `<option value="${m}">${m}</option>`).join('');
+
+  renderSessionList();
+}
+
+function renderSessionList() {
+  const monthFilter = document.getElementById('sessionMonthFilter').value;
+  let sessions = courseSessionsCache;
+  if (monthFilter !== 'all') sessions = sessions.filter(s => s.date.startsWith(monthFilter));
+
+  const tbody = document.getElementById('sessionsTableBody');
+  if (sessions.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center" style="color:#94a3b8;padding:20px;">교육일이 없습니다.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = sessions.map(s => {
+    const status = s.isCancelled ? '휴강' : s.isInactive ? '비활성' : '정상';
+    const statusColor = s.isCancelled ? '#f59e0b' : s.isInactive ? '#94a3b8' : '#22c55e';
+    return `<tr style="${s.isCancelled || s.isInactive ? 'opacity:.6;' : ''}">
+      <td>${s.sessionNo || '-'}</td>
+      <td>${s.date}</td>
+      <td>${getDayOfWeekKR(s.date)}요일</td>
+      <td>${formatTimeHM(s.startDateTime)}</td>
+      <td>${formatTimeHM(s.endDateTime)}</td>
+      <td><span style="color:${statusColor};font-weight:700;">${status}</span></td>
+      <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;">${s.note || ''}</td>
+      <td>
+        <button class="btn btn-secondary btn-sm" onclick="editSession('${s.id}')">
+          <i class="fa fa-edit"></i>
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function editSession(sessionId) {
+  currentSessionId = sessionId;
+  const s = courseSessionsCache.find(s => s.id === sessionId);
+  if (!s) return;
+
+  document.getElementById('seDate').value = s.date;
+  document.getElementById('seStartTime').value = formatTimeHM(s.startDateTime);
+  document.getElementById('seEndTime').value = formatTimeHM(s.endDateTime);
+  document.getElementById('seStatus').value = s.isCancelled ? 'cancelled' : s.isInactive ? 'inactive' : 'normal';
+  document.getElementById('seNote').value = s.note || '';
+  openModal('sessionEditModal');
+}
+
+async function saveSessionEdit() {
+  if (!currentSessionId) return;
+  const s = courseSessionsCache.find(s => s.id === currentSessionId);
+  const status = document.getElementById('seStatus').value;
+  const date = s.date;
+  const startTime = document.getElementById('seStartTime').value;
+  const endTime = document.getElementById('seEndTime').value;
+  const note = document.getElementById('seNote').value;
+
+  const { startDateTime, endDateTime } = buildSessionDateTimes(date, startTime,
+    diffMinutes(`${date}T${startTime}:00+09:00`, `${date}T${endTime}:00+09:00`));
+
+  const patch = {
+    startDateTime: `${date}T${startTime}:00+09:00`,
+    endDateTime: `${date}T${endTime}:00+09:00`,
+    isCancelled: status === 'cancelled',
+    isInactive: status === 'inactive',
+    note
+  };
+
+  try {
+    await apiPatch('sessions', currentSessionId, patch);
+    await writeAuditLog({
+      actorId: adminSession.id, actorName: adminSession.name,
+      action: 'UPDATE_SESSION', entityType: 'session', entityId: currentSessionId,
+      before: s, after: patch, reason: note || '교육일 수정'
+    });
+    showToast('교육일이 수정되었습니다.', 'success');
+    closeModal('sessionEditModal');
+    await loadCourses();
+    loadSessionsTab();
+  } catch (err) {
+    showToast('수정 실패: ' + err.message, 'error');
+  }
+}
+
+function addCancelDay() {
+  if (!currentCourseId) { showToast('과정을 먼저 저장하세요.', 'warning'); return; }
+  const date = prompt('휴강일을 입력하세요 (YYYY-MM-DD):');
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+  const c = allCourses.find(c => c.id === currentCourseId);
+  if (!c) return;
+  // Check if session exists for this date
+  const existing = courseSessionsCache.find(s => s.date === date);
+  if (existing) {
+    apiPatch('sessions', existing.id, { isCancelled: true, note: '관리자 휴강 지정' }).then(() => {
+      showToast(`${date} 휴강 처리되었습니다.`, 'success');
+      loadCourses().then(() => loadSessionsTab());
+    });
+  } else {
+    showToast('해당 날짜의 교육일이 없습니다.', 'warning');
+  }
+}
+
+// ===== Enrollments Tab =====
+async function loadEnrollmentsTab() {
+  if (!currentCourseId) return;
+  currentEnrollments = allEnrollments.filter(e => e.courseId === currentCourseId);
+  filterEnrollments();
+}
+
+function filterEnrollments() {
+  const search = document.getElementById('enrollSearch').value.toLowerCase();
+  let enrollments = currentEnrollments;
+  if (search) {
+    enrollments = enrollments.filter(e => {
+      const p = allParticipants.find(p => p.id === e.participantId);
+      return p && p.name.toLowerCase().includes(search);
+    });
+  }
+
+  const tbody = document.getElementById('enrollmentsTableBody');
+  if (enrollments.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="color:#94a3b8;padding:20px;">등록된 참여자가 없습니다.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = enrollments.map(e => {
+    const p = allParticipants.find(p => p.id === e.participantId);
+    if (!p) return '';
+    const statusColor = { '수강중': 'success', '수료': 'primary', '미수료': 'warning', '탈강': 'danger' }[e.status] || 'secondary';
+    return `<tr>
+      <td><strong>${escapeHtml(p.name)}</strong></td>
+      <td>${p.birthDate || '-'}</td>
+      <td>${p.phone || '-'}</td>
+      <td><span class="badge badge-${statusColor}">${e.status}</span></td>
+      <td><a href="attendance.html?courseId=${currentCourseId}&participantId=${p.id}" class="btn btn-primary btn-sm">
+        <i class="fa fa-chart-bar"></i> 출석부
+      </a></td>
+      <td>
+        <button class="btn btn-danger btn-sm" onclick="removeEnrollment('${e.id}','${escapeHtml(p.name)}')">
+          <i class="fa fa-user-minus"></i>
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openEnrollModal() {
+  if (!currentCourseId) { showToast('과정을 먼저 저장하세요.', 'warning'); return; }
+  document.getElementById('participantSearch').value = '';
+  document.getElementById('participantSearchResults').innerHTML = '';
+  document.getElementById('newPName').value = '';
+  document.getElementById('newPBirth').value = '';
+  document.getElementById('newPPhone').value = '';
+  openModal('enrollModal');
+}
+
+function searchParticipants() {
+  const search = document.getElementById('participantSearch').value.toLowerCase();
+  const results = document.getElementById('participantSearchResults');
+  if (!search) { results.innerHTML = ''; return; }
+
+  const alreadyEnrolled = new Set(currentEnrollments.map(e => e.participantId));
+  const found = allParticipantsCache.filter(p =>
+    (p.name.toLowerCase().includes(search) || (p.birthDate || '').includes(search)) &&
+    !alreadyEnrolled.has(p.id)
+  ).slice(0, 10);
+
+  if (found.length === 0) {
+    results.innerHTML = '<div style="padding:16px;text-align:center;color:#94a3b8;font-size:12px;">결과 없음</div>';
+    return;
+  }
+  results.innerHTML = found.map(p => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer;hover:background:#f8fafc;"
+      onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''"
+      onclick="enrollParticipant('${p.id}','${escapeHtml(p.name)}')">
+      <div>
+        <strong style="font-size:13px;">${escapeHtml(p.name)}</strong>
+        <span style="font-size:11px;color:#64748b;margin-left:8px;">${p.birthDate || ''}</span>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();enrollParticipant('${p.id}','${escapeHtml(p.name)}')">
+        <i class="fa fa-plus"></i> 추가
+      </button>
+    </div>
+  `).join('');
+}
+
+async function enrollParticipant(participantId, name) {
+  try {
+    const enroll = await apiPost('enrollments', {
+      id: generateUUID(), courseId: currentCourseId, participantId,
+      status: '수강중', deleted: false
+    });
+    currentEnrollments.push(enroll);
+    allEnrollments.push(enroll);
+    showToast(`${name}님이 추가되었습니다.`, 'success');
+    filterEnrollments();
+    closeModal('enrollModal');
+  } catch (err) {
+    showToast('추가 실패: ' + err.message, 'error');
+  }
+}
+
+async function addNewParticipant() {
+  const name = document.getElementById('newPName').value.trim();
+  const birth = document.getElementById('newPBirth').value;
+  const phone = document.getElementById('newPPhone').value.trim();
+  if (!name || !birth) { showToast('성명과 생년월일을 입력하세요.', 'warning'); return; }
+
+  try {
+    const p = await apiPost('participants', {
+      id: generateUUID(), name, birthDate: birth, phone, deleted: false
+    });
+    allParticipantsCache.push(p);
+    allParticipants.push(p);
+    await enrollParticipant(p.id, name);
+  } catch (err) {
+    showToast('등록 실패: ' + err.message, 'error');
+  }
+}
+
+async function removeEnrollment(enrollId, name) {
+  if (!confirm(`${name}님을 이 과정에서 제거하시겠습니까?`)) return;
+  try {
+    await apiPatch('enrollments', enrollId, { deleted: true, status: '탈강' });
+    currentEnrollments = currentEnrollments.filter(e => e.id !== enrollId);
+    allEnrollments = allEnrollments.filter(e => e.id !== enrollId);
+    showToast(`${name}님이 제거되었습니다.`, 'success');
+    filterEnrollments();
+  } catch (err) {
+    showToast('제거 실패: ' + err.message, 'error');
+  }
+}
+
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Handle URL hash for new course
+if (window.location.hash === '#new') openCourseModal();
+// Handle URL param for edit
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('edit')) {
+  loadCourses().then(() => openCourseModal(urlParams.get('edit')));
+} else {
+  loadCourses();
+}
+</script>
+</body>
+</html>

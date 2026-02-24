@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"/><title>Init Admin</title></head>
+<body>
+<div id="log" style="font-family:monospace;padding:20px;font-size:14px;white-space:pre;"></div>
+<script>
+const log = document.getElementById('log');
+function addLog(msg) { log.textContent += msg + '\n'; }
+
+async function sha256(message) {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function run() {
+  addLog('=== SHA-256 해시 계산 ===');
+  const pw = 'admin1234';
+  const hash = await sha256(pw);
+  addLog(`"${pw}" 의 SHA-256: ${hash}`);
+  addLog('');
+  
+  // DB에 저장
+  addLog('관리자 계정 생성 중...');
+  try {
+    const res = await fetch('tables/admin_users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: 'admin-001',
+        username: 'admin',
+        passwordHash: hash,
+        name: '관리자',
+        role: 'admin',
+        active: true,
+        lastLoginAt: ''
+      })
+    });
+    const data = await res.json();
+    addLog('생성 결과: ' + JSON.stringify(data));
+    addLog('');
+    addLog('✅ 완료! admin / admin1234 로 로그인하세요.');
+    addLog('이 페이지는 닫아도 됩니다.');
+    addLog('→ login.html 로 이동하세요.');
+  } catch(e) {
+    addLog('❌ 오류: ' + e.message);
+  }
+}
+run();
+</script>
+</body>
+</html>

@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <title>로그인 - 성남여성인력개발센터 출결시스템</title>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="theme-color" content="#1e3a8a"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    /* ── 모바일 우선 로그인 레이아웃 ── */
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      min-height: 100dvh;
+      background: linear-gradient(160deg, #0f172a 0%, #1e3a8a 55%, #2563eb 100%);
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+      font-family: 'Noto Sans KR', sans-serif;
+    }
+
+    .login-container {
+      width: 100%; max-width: 420px;
+    }
+
+    /* 로고 영역 */
+    .login-header {
+      text-align: center; margin-bottom: 24px;
+    }
+    .login-logo-icon {
+      width: 72px; height: 72px;
+      background: rgba(255,255,255,.15);
+      backdrop-filter: blur(8px);
+      border: 2px solid rgba(255,255,255,.25);
+      border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 14px;
+      font-size: 32px;
+    }
+    .login-header h1 {
+      font-size: 17px; font-weight: 900; color: white;
+      line-height: 1.4;
+    }
+    .login-header p {
+      font-size: 12px; color: rgba(255,255,255,.55); margin-top: 4px;
+    }
+
+    /* 탭 */
+    .tab-switch {
+      display: flex; background: rgba(255,255,255,.1);
+      backdrop-filter: blur(6px);
+      border-radius: 12px; padding: 4px; margin-bottom: 16px;
+      border: 1px solid rgba(255,255,255,.15);
+    }
+    .tab-switch button {
+      flex: 1; padding: 10px 8px; border: none; background: none;
+      font-size: 13px; font-weight: 600; color: rgba(255,255,255,.6);
+      border-radius: 9px; cursor: pointer; transition: all .2s;
+      font-family: 'Noto Sans KR', sans-serif;
+    }
+    .tab-switch button.active {
+      background: white; color: #1e3a8a; font-weight: 800;
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    }
+
+    /* 메인 카드 */
+    .login-card {
+      background: white; border-radius: 20px;
+      padding: 28px 24px;
+      box-shadow: 0 24px 60px rgba(0,0,0,.35);
+    }
+
+    /* 입력 필드 */
+    .field-group { margin-bottom: 16px; }
+    .field-label {
+      display: block; font-size: 12px; font-weight: 700;
+      color: #374151; margin-bottom: 6px;
+    }
+    .field-label .req { color: #ef4444; margin-left: 2px; }
+    .field-input-wrap { position: relative; }
+    .field-icon {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      color: #94a3b8; font-size: 14px; pointer-events: none;
+    }
+    .field-input {
+      width: 100%; padding: 13px 14px 13px 38px;
+      border: 1.5px solid #e2e8f0; border-radius: 10px;
+      font-size: 15px; font-family: 'Noto Sans KR', sans-serif;
+      color: #1e293b; outline: none; transition: border-color .2s;
+      -webkit-appearance: none;
+    }
+    .field-input:focus { border-color: #1e3a8a; }
+    .field-input.no-icon { padding-left: 14px; }
+    .pw-toggle {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: #94a3b8; padding: 4px 6px;
+      cursor: pointer; font-size: 15px;
+    }
+
+    /* 에러 */
+    .field-error {
+      display: none; align-items: center; gap: 6px;
+      background: #fff1f2; border: 1px solid #fca5a5;
+      border-radius: 8px; padding: 10px 12px;
+      font-size: 12px; color: #dc2626; margin-bottom: 12px;
+    }
+    .field-error.show { display: flex; }
+
+    /* 버튼 */
+    .btn-login {
+      width: 100%; padding: 15px; border: none; border-radius: 12px;
+      background: #1e3a8a; color: white;
+      font-size: 15px; font-weight: 800;
+      cursor: pointer; transition: all .2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      font-family: 'Noto Sans KR', sans-serif;
+      box-shadow: 0 4px 14px rgba(30,58,138,.4);
+    }
+    .btn-login:active { transform: scale(.98); }
+    .btn-login:disabled { opacity: .65; cursor: not-allowed; }
+    .btn-login.participant {
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      box-shadow: 0 4px 14px rgba(79,70,229,.4);
+    }
+
+    /* 힌트 박스 */
+    .hint-box {
+      margin-top: 14px; padding: 12px 14px;
+      background: #eff6ff; border: 1px solid #bfdbfe;
+      border-radius: 10px; font-size: 11px; color: #1e3a8a;
+      text-align: center; line-height: 1.7;
+    }
+    .hint-box .warn { color: #ef4444; font-size: 10px; }
+
+    /* 참여자 섹션 아이콘 */
+    .participant-icon-wrap {
+      text-align: center; margin-bottom: 20px;
+    }
+    .participant-icon {
+      width: 72px; height: 72px;
+      background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+      border-radius: 18px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 12px;
+    }
+    .participant-icon i { font-size: 32px; color: #7c3aed; }
+    .participant-icon-wrap p {
+      font-size: 13px; color: #475569; line-height: 1.7;
+    }
+
+    /* 생년월일 입력 안내 */
+    .birth-hint {
+      font-size: 10px; color: #94a3b8; margin-top: 4px;
+    }
+
+    /* 스피너 */
+    .spinner-sm {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: white; border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 버전 */
+    .login-version {
+      text-align: center; margin-top: 16px;
+      font-size: 10px; color: rgba(255,255,255,.3);
+    }
+
+    /* 태블릿/PC에서는 기존 .login-wrap 스타일 유지 */
+    @media (min-width: 768px) {
+      body { padding: 40px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-container">
+
+  <!-- 로고 -->
+  <div class="login-header">
+    <div class="login-logo-icon">🏫</div>
+    <h1>성남여성인력개발센터</h1>
+    <p>직업교육훈련 출결 관리 시스템</p>
+  </div>
+
+  <!-- 탭 전환 -->
+  <div class="tab-switch">
+    <button id="btnTabAdmin" class="active" onclick="switchTab('admin')">
+      <i class="fa fa-lock"></i> 관리자
+    </button>
+    <button id="btnTabParticipant" onclick="switchTab('participant')">
+      <i class="fa fa-qrcode"></i> QR 출결
+    </button>
+  </div>
+
+  <!-- ── 관리자 로그인 ── -->
+  <div class="login-card" id="adminCard">
+    <form id="adminLoginForm" onsubmit="doAdminLogin(event)" autocomplete="on">
+      <div class="field-group">
+        <label class="field-label" for="adminId">아이디 <span class="req">*</span></label>
+        <div class="field-input-wrap">
+          <i class="fa fa-user field-icon"></i>
+          <input type="text" id="adminId" class="field-input"
+            placeholder="관리자 아이디"
+            required autocomplete="username"
+            inputmode="text"/>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="adminPw">비밀번호 <span class="req">*</span></label>
+        <div class="field-input-wrap">
+          <i class="fa fa-lock field-icon"></i>
+          <input type="password" id="adminPw" class="field-input"
+            placeholder="비밀번호"
+            required autocomplete="current-password"/>
+          <button type="button" class="pw-toggle" onclick="togglePw()">
+            <i class="fa fa-eye" id="pwEyeIcon"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="field-error" id="adminLoginError">
+        <i class="fa fa-circle-exclamation"></i>
+        <span id="adminLoginErrMsg">아이디 또는 비밀번호가 올바르지 않습니다.</span>
+      </div>
+
+      <button type="submit" class="btn-login" id="adminLoginBtn">
+        <i class="fa fa-sign-in-alt"></i> 로그인
+      </button>
+    </form>
+
+    <div class="hint-box">
+      <i class="fa fa-circle-info"></i>
+      초기 계정: <strong>admin</strong> / <strong>admin1234</strong><br/>
+      <span class="warn">⚠️ 최초 로그인 후 반드시 비밀번호를 변경하세요.</span>
+    </div>
+  </div>
+
+  <!-- ── 참여자 QR 출결 ── -->
+  <div class="login-card" id="participantCard" style="display:none;">
+    <div class="participant-icon-wrap">
+      <div class="participant-icon">
+        <i class="fa fa-camera"></i>
+      </div>
+      <p>이름과 생년월일을 입력하면<br/>QR 카메라 출결 화면으로 이동합니다.</p>
+    </div>
+
+    <form id="participantLoginForm" onsubmit="doParticipantLogin(event)" autocomplete="on">
+      <div class="field-group">
+        <label class="field-label" for="pName">성명 <span class="req">*</span></label>
+        <div class="field-input-wrap">
+          <i class="fa fa-user field-icon"></i>
+          <input type="text" id="pName" class="field-input"
+            placeholder="이름을 입력하세요"
+            required autocomplete="name"
+            inputmode="text"/>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label" for="pBirth">생년월일 <span class="req">*</span></label>
+        <div class="field-input-wrap">
+          <i class="fa fa-calendar field-icon"></i>
+          <input type="text" id="pBirth" class="field-input"
+            placeholder="예: 1990-01-15"
+            required
+            pattern="\d{4}-\d{2}-\d{2}"
+            inputmode="numeric"
+            autocomplete="bday"
+            maxlength="10"/>
+        </div>
+        <div class="birth-hint">YYYY-MM-DD 형식 (숫자만 입력하면 자동 변환)</div>
+      </div>
+
+      <div class="field-error" id="pLoginError">
+        <i class="fa fa-circle-exclamation"></i>
+        <span id="pLoginErrMsg">정보를 확인할 수 없습니다.</span>
+      </div>
+
+      <button type="submit" class="btn-login participant" id="pLoginBtn">
+        <i class="fa fa-camera"></i> QR 출결 시작
+      </button>
+    </form>
+  </div>
+
+  <p class="login-version">v1.0.0 · 성남여성인력개발센터 출결관리시스템</p>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script>
+// ── 탭 전환 ──────────────────────────────────────────────────────
+function switchTab(tab) {
+  const isAdmin = tab === 'admin';
+  document.getElementById('btnTabAdmin').classList.toggle('active', isAdmin);
+  document.getElementById('btnTabParticipant').classList.toggle('active', !isAdmin);
+  document.getElementById('adminCard').style.display       = isAdmin ? 'block' : 'none';
+  document.getElementById('participantCard').style.display = isAdmin ? 'none'  : 'block';
+  // 포커스
+  setTimeout(() => {
+    document.getElementById(isAdmin ? 'adminId' : 'pName').focus();
+  }, 50);
+}
+
+// ── 비밀번호 보기/숨기기 ──────────────────────────────────────────
+function togglePw() {
+  const inp = document.getElementById('adminPw');
+  const icon = document.getElementById('pwEyeIcon');
+  if (inp.type === 'password') { inp.type = 'text'; icon.className = 'fa fa-eye-slash'; }
+  else                         { inp.type = 'password'; icon.className = 'fa fa-eye'; }
+}
+
+// ── 생년월일 자동 하이픈 삽입 ────────────────────────────────────
+document.getElementById('pBirth').addEventListener('input', function(e) {
+  let v = this.value.replace(/\D/g, '');
+  if (v.length >= 5)      v = v.substring(0,4) + '-' + v.substring(4);
+  if (v.length >= 8)      v = v.substring(0,7) + '-' + v.substring(7);
+  if (v.length > 10)      v = v.substring(0,10);
+  this.value = v;
+});
+
+// ── 초기화 ────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  // 이미 로그인된 경우 리디렉션
+  const session = getAuthSession();
+  if (session) {
+    if (session.role === 'admin' || session.role === 'staff') {
+      window.location.href = 'index.html';
+    } else {
+      window.location.href = 'qr-check.html';
+    }
+    return;
+  }
+
+  // URL 파라미터 처리: ?tab=participant 이면 참여자 탭 자동 선택
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('tab') === 'participant') {
+    switchTab('participant');
+  } else {
+    document.getElementById('adminId').focus();
+    // 관리자 계정 없으면 자동 생성 (백그라운드)
+    ensureAdminExists();
+  }
+});
+
+// ── 초기 관리자 자동 생성 ────────────────────────────────────────
+function _sbH() {
+  return {
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_ANON,
+    'Authorization': `Bearer ${SUPABASE_ANON}`,
+    'Prefer': 'return=representation'
+  };
+}
+function _sbU(table, q='') {
+  return `${SUPABASE_URL}/rest/v1/${table}${q ? '?'+q : ''}`;
+}
+
+async function ensureAdminExists() {
+  try {
+    const res = await fetch(_sbU('admin_users','deleted=eq.false&active=eq.true&limit=1'), { headers: _sbH() });
+    if (!res.ok) return;
+    const users = await res.json();
+    if (!Array.isArray(users) || users.length === 0) {
+      const hash = await sha256('admin1234');
+      await fetch(_sbU('admin_users'), {
+        method: 'POST',
+        headers: _sbH(),
+        body: JSON.stringify({
+          id: 'admin-' + Date.now(),
+          username: 'admin',
+          passwordHash: hash,
+          name: '관리자',
+          role: 'admin',
+          active: true,
+          deleted: false,
+          lastLoginAt: ''
+        })
+      });
+      console.log('✅ 초기 관리자 계정 생성 완료 (admin/admin1234)');
+    }
+  } catch(e) {
+    console.warn('관리자 초기화 실패:', e);
+  }
+}
+
+// ── 관리자 로그인 ────────────────────────────────────────────────
+async function doAdminLogin(e) {
+  e.preventDefault();
+  const btn    = document.getElementById('adminLoginBtn');
+  const errDiv = document.getElementById('adminLoginError');
+  const errMsg = document.getElementById('adminLoginErrMsg');
+  errDiv.classList.remove('show');
+
+  const username = document.getElementById('adminId').value.trim();
+  const password = document.getElementById('adminPw').value;
+  if (!username || !password) return;
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-sm"></span> 확인 중...';
+
+  try {
+    await ensureAdminExists();
+
+    const hash = await sha256(password);
+    const adminRes = await fetch(_sbU('admin_users','deleted=eq.false&active=eq.true&limit=100'), { headers: _sbH() });
+    if (!adminRes.ok) throw new Error('admin_users 조회 실패: ' + adminRes.status);
+    const users = await adminRes.json();
+
+    let user = users.find(u =>
+      u.username === username &&
+      u.passwordHash === hash &&
+      u.active !== false &&
+      !u.deleted
+    );
+
+    // 해시 불일치 → admin 계정 자동 해시 재설정 (초기화 복구)
+    if (!user) {
+      const sameUser = users.find(u => u.username === username && u.active !== false && !u.deleted);
+      if (sameUser && username === 'admin') {
+        await fetch(_sbU('admin_users', `id=eq.${sameUser.id}`), {
+          method: 'PATCH',
+          headers: _sbH(),
+          body: JSON.stringify({ passwordHash: hash })
+        });
+        user = { ...sameUser, passwordHash: hash };
+      }
+    }
+
+    if (!user) {
+      errMsg.textContent = '아이디 또는 비밀번호가 올바르지 않습니다.';
+      errDiv.classList.add('show');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-sign-in-alt"></i> 로그인';
+      return;
+    }
+
+    // 마지막 로그인 시간 업데이트
+    fetch(_sbU('admin_users', `id=eq.${user.id}`), {
+      method: 'PATCH',
+      headers: _sbH(),
+      body: JSON.stringify({ lastLoginAt: new Date().toISOString() })
+    }).catch(() => {});
+
+    setAuthSession({ id: user.id, username: user.username, name: user.name, role: user.role });
+    window.location.href = 'index.html';
+
+  } catch (err) {
+    console.error('로그인 오류:', err);
+    errMsg.textContent = '서버 오류가 발생했습니다. 잠시 후 다시 시도하세요.';
+    errDiv.classList.add('show');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa fa-sign-in-alt"></i> 로그인';
+  }
+}
+
+// ── 참여자 로그인 ────────────────────────────────────────────────
+async function doParticipantLogin(e) {
+  e.preventDefault();
+  const errDiv = document.getElementById('pLoginError');
+  const errMsg = document.getElementById('pLoginErrMsg');
+  const btn    = document.getElementById('pLoginBtn');
+  errDiv.classList.remove('show');
+
+  const rawName  = document.getElementById('pName').value;
+  const rawBirth = document.getElementById('pBirth').value;
+  const name  = rawName.replace(/[\s\u3000\u00A0\u200b]+/g, ' ').trim();
+  const birth = rawBirth.replace(/[^\d]/g, '');
+
+  if (!name || birth.length < 8) {
+    errMsg.textContent = '이름과 생년월일을 올바르게 입력하세요.';
+    errDiv.classList.add('show');
+    return;
+  }
+
+  const birthFormatted = `${birth.substring(0,4)}-${birth.substring(4,6)}-${birth.substring(6,8)}`;
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-sm"></span> 확인 중...';
+
+  try {
+    const participants = await apiGetAll('participants');
+    const active = participants.filter(pt => !pt.deleted);
+
+    // 1차: 정확 일치
+    let p = active.find(pt => pt.name === name && pt.birthDate === birthFormatted);
+    // 2차: 이름 공백 무시
+    if (!p) {
+      const cn = name.replace(/\s+/g,'');
+      p = active.find(pt => (pt.name||'').replace(/\s+/g,'') === cn && pt.birthDate === birthFormatted);
+    }
+    // 3차: 생년월일 숫자만
+    if (!p) {
+      const cn = name.replace(/\s+/g,'');
+      p = active.find(pt =>
+        (pt.name||'').replace(/\s+/g,'') === cn &&
+        (pt.birthDate||'').replace(/[^\d]/g,'') === birth
+      );
+    }
+
+    if (!p) {
+      const nameOnly = active.filter(pt => (pt.name||'').replace(/\s+/g,'') === name.replace(/\s+/g,''));
+      errMsg.textContent = nameOnly.length > 0
+        ? '이름은 확인되었으나 생년월일이 일치하지 않습니다. 담당자에게 문의하세요.'
+        : '등록된 참여자 정보를 찾을 수 없습니다. 담당자에게 문의하세요.';
+      errDiv.classList.add('show');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-camera"></i> QR 출결 시작';
+      return;
+    }
+
+    setAuthSession({ id: p.id, name: p.name, birthDate: p.birthDate, role: 'participant' });
+    window.location.href = 'qr-check.html';
+
+  } catch (err) {
+    console.error('참여자 로그인 오류:', err);
+    errMsg.textContent = '서버 오류가 발생했습니다. 잠시 후 다시 시도하세요.';
+    errDiv.classList.add('show');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa fa-camera"></i> QR 출결 시작';
+  }
+}
+</script>
+</body>
+</html>

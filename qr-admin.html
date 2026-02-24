@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>QR 코드 관리 - 성남여성인력개발센터 출결시스템</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+  <style>
+    /* QR 표시 박스 */
+    .qr-display-box {
+      background: white; border: 2px solid #e2e8f0; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 220px; min-width: 220px; padding: 16px;
+    }
+    /* 상태 뱃지 영역 */
+    .qr-status-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-top: 12px; padding: 10px 14px;
+      background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;
+      font-size: 12px;
+    }
+    .qr-status-row .qr-course-label { font-weight: 700; color: #1e293b; flex: 1; }
+    .qr-status-row .qr-created-at   { color: #94a3b8; font-size: 11px; }
+
+    /* 수동 갱신 버튼 (크게, 눈에 띄게) */
+    .btn-refresh-qr {
+      width: 100%; padding: 15px; border: none; border-radius: 12px;
+      background: linear-gradient(135deg, #1e3a8a, #2563eb);
+      color: white; font-size: 16px; font-weight: 800;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+      box-shadow: 0 4px 18px rgba(30,58,138,.4);
+      transition: all .2s; margin-top: 12px;
+      font-family: 'Noto Sans KR', sans-serif;
+    }
+    .btn-refresh-qr:hover  { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(30,58,138,.5); }
+    .btn-refresh-qr:active { transform: scale(.98); }
+
+    /* 인쇄 버튼 */
+    .btn-print-qr {
+      width: 100%; padding: 12px; border: 2px solid #1e3a8a; border-radius: 12px;
+      background: white; color: #1e3a8a; font-size: 14px; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: all .2s; margin-top: 8px;
+      font-family: 'Noto Sans KR', sans-serif;
+    }
+    .btn-print-qr:hover { background: #eff6ff; }
+
+    /* 공유 버튼 그룹 */
+    .share-row {
+      display: flex; gap: 8px; margin-top: 8px;
+    }
+    .share-row .btn {
+      flex: 1;
+    }
+
+    /* 안내 박스 */
+    .info-box {
+      padding: 12px 14px; background: #eff6ff;
+      border: 1px solid #bfdbfe; border-radius: 10px;
+      font-size: 12px; color: #1e3a8a; line-height: 1.8; margin-top: 10px;
+    }
+
+    /* 인쇄 전용 스타일 */
+    @media print {
+      body * { visibility: hidden !important; }
+      #printArea, #printArea * { visibility: visible !important; }
+      #printArea {
+        position: fixed !important; top: 0; left: 0;
+        width: 100vw; height: 100vh;
+        display: flex !important;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: white;
+        z-index: 9999;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><span>🏫</span></div>
+      <div><div class="logo-text">성남여성인력개발센터</div><div class="logo-sub">출결관리시스템</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">메인</div>
+      <a href="index.html" class="nav-item"><i class="fa fa-home"></i> 대시보드</a>
+      <a href="courses.html" class="nav-item"><i class="fa fa-book"></i> 과정 관리</a>
+      <a href="participants.html" class="nav-item"><i class="fa fa-users"></i> 참여자 관리</a>
+      <div class="nav-section">출결</div>
+      <a href="qr-admin.html" class="nav-item active"><i class="fa fa-qrcode"></i> QR 코드 발급</a>
+      <a href="attendance.html" class="nav-item"><i class="fa fa-calendar-check"></i> 출결 현황</a>
+      <div class="nav-section">보고서</div>
+      <a href="report.html" class="nav-item"><i class="fa fa-chart-bar"></i> 리포트/다운로드</a>
+      <a href="audit-log.html" class="nav-item"><i class="fa fa-history"></i> 감사 로그</a>
+      <div class="nav-section">시스템</div>
+      <a href="settings.html" class="nav-item"><i class="fa fa-cog"></i> 시스템 설정</a>
+      <a href="holidays.html" class="nav-item"><i class="fa fa-calendar-xmark"></i> 공휴일 관리</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="sidebarUser" style="margin-bottom:8px;font-weight:600;"></div>
+      <a href="#" onclick="doLogout()" style="color:rgba(255,255,255,.6);font-size:11px;"><i class="fa fa-sign-out-alt"></i> 로그아웃</a>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="top-header">
+      <span class="page-title"><i class="fa fa-qrcode" style="color:#1e3a8a;"></i> QR 코드 관리</span>
+      <div class="header-actions">
+        <button class="btn btn-secondary" onclick="loadTodayEvents()">
+          <i class="fa fa-refresh"></i> 새로고침
+        </button>
+      </div>
+    </header>
+
+    <main class="page-body fade-in">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+
+        <!-- ── 왼쪽: QR 생성 설정 ── -->
+        <div class="card">
+          <div class="card-header">
+            <i class="fa fa-plus-circle" style="color:#1e3a8a;"></i>
+            <h3>QR 코드 발급</h3>
+          </div>
+          <div class="card-body">
+            <div class="form-group mb-4">
+              <label class="form-label required">과정 선택</label>
+              <select id="qrCourseSelect" class="form-control" style="font-size:14px;font-weight:600;">
+                <option value="">-- 과정 선택 --</option>
+              </select>
+              <div style="margin-top:6px;font-size:11px;color:#64748b;">
+                <i class="fa fa-circle-info"></i>
+                과정을 선택하면 <strong>QR 1개</strong>로 모든 교육일 출결 가능합니다.<br/>
+                교육일마다 새로 발급할 필요 없이, 갱신이 필요할 때만 <strong>QR 갱신</strong>을 누르세요.
+              </div>
+            </div>
+
+            <!-- 인쇄용 안내 박스 -->
+            <div class="info-box">
+              <i class="fa fa-print"></i> <strong>출력 출결 방법</strong><br/>
+              ① 과정 선택 후 <strong>QR 코드 생성</strong> 클릭<br/>
+              ② <strong>인쇄하기</strong> 버튼으로 A4 출력<br/>
+              ③ 출력된 QR을 교실에 부착<br/>
+              ④ 참여자가 핸드폰으로 스캔 → 출결 완료<br/>
+              ⑤ QR 교체가 필요할 때만 <strong>QR 갱신</strong> 클릭
+            </div>
+
+            <button class="btn btn-primary btn-block" style="margin-top:14px;" onclick="generateQR()">
+              <i class="fa fa-qrcode"></i> QR 코드 생성
+            </button>
+          </div>
+        </div>
+
+        <!-- ── 오른쪽: QR 표시 ── -->
+        <div class="card">
+          <div class="card-header">
+            <i class="fa fa-display" style="color:#1e3a8a;"></i>
+            <h3>QR 코드</h3>
+            <div style="margin-left:auto;">
+              <span id="qrStatusBadge" class="badge badge-secondary">대기중</span>
+            </div>
+          </div>
+          <div class="card-body" style="text-align:center;">
+
+            <!-- QR 이미지 영역 -->
+            <div class="qr-display-box" id="qrDisplayBox">
+              <div style="color:#94a3b8;">
+                <i class="fa fa-qrcode" style="font-size:48px;opacity:.3;display:block;margin-bottom:8px;"></i>
+                왼쪽에서 과정·세션 선택 후<br/>생성하세요
+              </div>
+            </div>
+
+            <!-- 생성 정보 -->
+            <div class="qr-status-row" id="qrInfoRow" style="display:none;">
+              <div class="qr-course-label" id="qrCourseLabel">-</div>
+              <div class="qr-created-at" id="qrCreatedAt">-</div>
+            </div>
+
+            <!-- 갱신 버튼 (수동) -->
+            <button class="btn-refresh-qr" id="btnRefreshQR" style="display:none;" onclick="refreshQR()">
+              <i class="fa fa-rotate-right"></i> QR 갱신 (새 코드 발급)
+            </button>
+
+            <!-- 인쇄 버튼 -->
+            <button class="btn-print-qr" id="btnPrintQR" style="display:none;" onclick="printQR()">
+              <i class="fa fa-print"></i> 인쇄하기 (A4 출력)
+            </button>
+
+            <!-- URL 복사/공유 -->
+            <div class="share-row" id="qrShareSection" style="display:none;">
+              <button class="btn btn-secondary btn-sm" onclick="copyQRUrl()">
+                <i class="fa fa-copy"></i> URL 복사
+              </button>
+              <button class="btn btn-secondary btn-sm" id="btnShare" onclick="shareQRUrl()" style="display:none;">
+                <i class="fa fa-share-nodes"></i> 공유
+              </button>
+            </div>
+
+            <div id="qrTokenDisplay" style="margin-top:8px;font-size:10px;color:#94a3b8;word-break:break-all;padding:4px 8px;background:#f8fafc;border-radius:4px;display:none;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 오늘 출결 이벤트 ── -->
+      <div class="card" style="margin-top:20px;">
+        <div class="card-header">
+          <i class="fa fa-list-check" style="color:#1e3a8a;"></i>
+          <h3>오늘 출결 이벤트</h3>
+          <button class="btn btn-secondary btn-sm" style="margin-left:auto;" onclick="loadTodayEvents()">
+            <i class="fa fa-refresh"></i> 새로고침
+          </button>
+        </div>
+        <div class="table-wrapper" style="border-radius:0 0 12px 12px;border:none;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>참여자</th>
+                <th>과정</th>
+                <th>이벤트</th>
+                <th>시각</th>
+                <th>GPS 유효</th>
+                <th>정확도</th>
+                <th>토큰</th>
+              </tr>
+            </thead>
+            <tbody id="eventsTableBody">
+              <tr><td colspan="7" class="text-center" style="padding:20px;color:#94a3b8;">데이터 없음</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     인쇄 전용 레이어 (화면에는 숨김)
+═══════════════════════════════════ -->
+<div id="printArea" style="display:none;">
+  <div style="text-align:center; font-family:'Noto Sans KR',sans-serif; max-width:600px; margin:0 auto; padding:20px;">
+    <!-- 헤더 -->
+    <div style="border-bottom:3px solid #1e3a8a; padding-bottom:14px; margin-bottom:18px;">
+      <div style="font-size:24px; font-weight:900; color:#1e3a8a; margin-bottom:4px;">🏫 성남여성인력개발센터</div>
+      <div style="font-size:16px; font-weight:700; color:#374151;" id="printCourseName">-</div>
+      <div style="font-size:13px; color:#64748b; margin-top:4px;" id="printSessionInfo">-</div>
+    </div>
+
+    <!-- QR 코드 + 안내 -->
+    <div style="display:flex; align-items:center; gap:24px; justify-content:center; flex-wrap:wrap;">
+      <!-- QR 이미지 -->
+      <div id="printQrCode" style="display:inline-block; padding:14px; border:3px solid #1e3a8a; border-radius:12px; background:white;"></div>
+
+      <!-- 사용법 안내 -->
+      <div style="text-align:left; min-width:220px;">
+        <div style="font-size:15px; font-weight:800; color:#1e3a8a; margin-bottom:10px;">📱 출결 체크 방법</div>
+        <div style="font-size:13px; color:#374151; line-height:2.2;">
+          <div>① 아래 URL로 <strong>참여자 로그인</strong></div>
+          <div>② 이름 &amp; 생년월일 입력</div>
+          <div>③ 카메라 시작 후 QR 스캔</div>
+          <div>④ 입실 / 퇴실 각 1회씩</div>
+        </div>
+        <div style="margin-top:12px; padding:10px 12px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px;">
+          <div style="font-size:11px; color:#64748b; margin-bottom:4px;">🔗 로그인 URL</div>
+          <div id="printLoginUrl" style="color:#1e3a8a; font-size:12px; font-weight:700; word-break:break-all;">-</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 발급 정보 -->
+    <div style="margin-top:16px; padding-top:12px; border-top:1px dashed #e2e8f0; font-size:11px; color:#94a3b8;" id="printCreatedAt">발급: -</div>
+    <div style="font-size:10px; color:#cbd5e1; margin-top:4px;">이 QR 코드는 교육 기간 동안 유효합니다 · QR 변경 시 관리자에게 문의</div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script>
+const adminSession = requireAuth();
+if (!adminSession) throw new Error();
+document.getElementById('sidebarUser').textContent = `${adminSession.name} (관리자)`;
+
+let currentQRData   = null;   // { token, sessionId, courseId, id, expiresAt }
+let allCoursesData  = [];
+let allSessionsData = [];
+
+function doLogout() {
+  if (confirm('로그아웃?')) { clearAuthSession(); window.location.href = 'login.html'; }
+}
+
+// ── 초기화 ────────────────────────────────────────────────────────
+async function init() {
+  const courses = await apiGetAll('courses');
+  allCoursesData = courses.filter(c => !c.deleted && c.status === '운영중');
+  const sel = document.getElementById('qrCourseSelect');
+  allCoursesData.forEach(c => {
+    sel.innerHTML += `<option value="${c.id}">${escapeHtml(c.name)} (${c.startDate||''}~${c.endDate||''})</option>`;
+  });
+  await loadTodayEvents();
+}
+
+// ── QR 코드 생성 (최초) ───────────────────────────────────────────
+function generateQR() {
+  const courseId = document.getElementById('qrCourseSelect').value;
+  if (!courseId) {
+    showToast('과정을 선택하세요.', 'warning');
+    return;
+  }
+  buildQR(courseId);
+}
+
+// ── QR 수동 갱신 ──────────────────────────────────────────────────
+function refreshQR() {
+  if (!currentQRData) return;
+  if (!confirm('QR 코드를 새로 발급합니다.\n기존 QR 코드는 더 이상 사용할 수 없습니다.\n계속하시겠습니까?')) return;
+  buildQR(currentQRData.courseId);
+}
+
+// ── 실제 QR 생성 로직 (과정 단위) ────────────────────────────────
+function buildQR(courseId) {
+  const token   = generateQRToken(courseId, 'course-level', 'snwdc-qr-2025');
+  const tokenId = generateUUID();
+  const now     = new Date();
+  const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30일
+
+  const tokenData = { id: tokenId, courseId, sessionId: null, token, expiresAt };
+  currentQRData   = tokenData;
+
+  // localStorage에 저장 (qr-check.html에서 참조)
+  localStorage.setItem('snwdc_current_qr', JSON.stringify({
+    ...tokenData, createdAt: now.toISOString()
+  }));
+
+  // QR URL — 세션ID 없이 courseId만 포함 (qr-check에서 오늘 날짜 세션 자동 매칭)
+  const base  = window.location.origin + window.location.pathname.replace('qr-admin.html', '');
+  const qrUrl = `${base}qr-check.html?token=${encodeURIComponent(token)}&courseId=${courseId}&tid=${tokenId}`;
+
+  // QR 그리기
+  const display = document.getElementById('qrDisplayBox');
+  display.innerHTML = '<div id="qrCode"></div>';
+  new QRCode(document.getElementById('qrCode'), {
+    text:  qrUrl,
+    width: 220, height: 220,
+    colorDark:  '#1e3a8a',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+
+  // 정보 표시
+  const course = allCoursesData.find(c => c.id === courseId);
+  const label  = `📚 ${escapeHtml(course?.name || '')}`;
+  const createdStr = `발급: ${now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+
+  document.getElementById('qrCourseLabel').innerHTML = label;
+  document.getElementById('qrCreatedAt').textContent = createdStr;
+  document.getElementById('qrInfoRow').style.display = 'flex';
+  document.getElementById('qrTokenDisplay').textContent = `Token: ${token.substring(0, 24)}...`;
+  document.getElementById('qrTokenDisplay').style.display = 'block';
+
+  // 버튼 표시
+  document.getElementById('qrStatusBadge').className   = 'badge badge-success';
+  document.getElementById('qrStatusBadge').textContent = '활성';
+  document.getElementById('btnRefreshQR').style.display = 'flex';
+  document.getElementById('btnPrintQR').style.display   = 'flex';
+  document.getElementById('qrShareSection').style.display = 'flex';
+  if (navigator.share) document.getElementById('btnShare').style.display = 'inline-flex';
+
+  // 인쇄 영역 데이터
+  const loginUrl = `${base}participant-login.html`;
+  document.getElementById('printCourseName').textContent = course?.name || '-';
+  document.getElementById('printSessionInfo').textContent = `${course?.startDate||''} ~ ${course?.endDate||''} · 모든 교육일 유효`;
+  document.getElementById('printLoginUrl').textContent    = loginUrl;
+  document.getElementById('printCreatedAt').textContent   = `발급: ${now.toLocaleString('ko-KR')}`;
+
+  // 인쇄용 QR (크게)
+  const printBox = document.getElementById('printQrCode');
+  printBox.innerHTML = '';
+  new QRCode(printBox, {
+    text: qrUrl, width: 280, height: 280,
+    colorDark: '#000000', colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  showToast('✅ QR 코드가 생성되었습니다!', 'success');
+
+  // 서버에 토큰 저장 (best effort)
+  apiPost('qr_tokens', {
+    id: tokenId, courseId, sessionId: '', token, expiresAt, used: false
+  }).catch(() => {});
+}
+
+// ── 인쇄 ──────────────────────────────────────────────────────────
+function printQR() {
+  if (!currentQRData) { showToast('먼저 QR 코드를 생성하세요.', 'warning'); return; }
+  document.getElementById('printArea').style.display = 'flex';
+  window.print();
+  // 인쇄 후 숨기기 (약간 딜레이)
+  setTimeout(() => {
+    document.getElementById('printArea').style.display = 'none';
+  }, 1000);
+}
+
+// ── 현재 QR URL ───────────────────────────────────────────────────
+function getCurrentQRUrl() {
+  if (!currentQRData) return null;
+  const base = window.location.origin + window.location.pathname.replace('qr-admin.html', '');
+  return `${base}qr-check.html?token=${encodeURIComponent(currentQRData.token)}&sessionId=${currentQRData.sessionId}&courseId=${currentQRData.courseId}&tid=${currentQRData.id}`;
+}
+
+// ── URL 복사 ──────────────────────────────────────────────────────
+async function copyQRUrl() {
+  const url = getCurrentQRUrl();
+  if (!url) { showToast('먼저 QR 코드를 생성하세요.', 'warning'); return; }
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('✅ QR URL이 클립보드에 복사되었습니다!', 'success');
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    showToast('✅ URL 복사 완료', 'success');
+  }
+}
+
+// ── Web Share API ─────────────────────────────────────────────────
+async function shareQRUrl() {
+  const url = getCurrentQRUrl();
+  if (!url) { showToast('먼저 QR 코드를 생성하세요.', 'warning'); return; }
+  try {
+    await navigator.share({
+      title: '성남여성인력개발센터 QR 출결',
+      text:  '아래 링크를 눌러 QR 출결을 진행하세요.',
+      url
+    });
+  } catch(e) {
+    if (e.name !== 'AbortError') copyQRUrl();
+  }
+}
+
+// ── 오늘 출결 이벤트 ──────────────────────────────────────────────
+async function loadTodayEvents() {
+  try {
+    const [events, participants, sessions, courses] = await Promise.all([
+      apiGetAll('attendance_events'),
+      apiGetAll('participants'),
+      apiGetAll('sessions'),
+      apiGetAll('courses')
+    ]);
+    const today       = getTodaySeoul();
+    const todayEvents = events
+      .filter(e => e.timestamp && e.timestamp.startsWith(today.substring(0, 10)))
+      .sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+
+    const tbody = document.getElementById('eventsTableBody');
+    if (!todayEvents.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center" style="padding:20px;color:#94a3b8;">오늘 출결 이벤트 없음</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = todayEvents.map(e => {
+      const p = participants.find(p => p.id === e.participantId);
+      const s = sessions.find(s => s.id === e.sessionId);
+      const c = s ? courses.find(c => c.id === s.courseId) : null;
+      const eventColor = e.eventType === 'checkin' ? '#22c55e' : '#3b82f6';
+      const eventLabel = e.eventType === 'checkin' ? '입실' : '퇴실';
+      return `<tr>
+        <td>${p ? escapeHtml(p.name) : '-'}</td>
+        <td>${c ? escapeHtml(c.name) : '-'}</td>
+        <td><span style="color:${eventColor};font-weight:700;">${eventLabel}</span></td>
+        <td>${e.timestamp ? formatTimeHM(e.timestamp) : '-'}</td>
+        <td>${e.locationValid ? '<span style="color:#22c55e;">✓ 유효</span>' : '<span style="color:#ef4444;">✗ 실패</span>'}</td>
+        <td>${e.gpsAccuracy ? Math.round(e.gpsAccuracy) + 'm' : '-'}</td>
+        <td style="font-size:10px;color:#94a3b8;">${e.qrTokenId ? e.qrTokenId.substring(0, 8) + '...' : '-'}</td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+init();
+</script>
+</body>
+</html>

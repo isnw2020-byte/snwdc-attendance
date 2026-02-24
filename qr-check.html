@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <title>QR 출결 - 성남여성인력개발센터</title>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="theme-color" content="#0f172a"/>
+  <!-- jsQR: 경량·안정적 QR 디코더 -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary:       #1e3a8a;
+      --primary-l:     #3b82f6;
+      --success:       #16a34a;
+      --danger:        #dc2626;
+      --warn:          #d97706;
+      --bg-dark:       #0f172a;
+    }
+
+    html, body {
+      height: 100%; font-family: 'Noto Sans KR', sans-serif;
+      background: var(--bg-dark); color: #1e293b;
+      overscroll-behavior: none; -webkit-font-smoothing: antialiased;
+    }
+
+    /* ━━━━━━━ 앱 레이아웃 ━━━━━━━ */
+    .app {
+      min-height: 100dvh; display: flex; flex-direction: column;
+      align-items: center; background: linear-gradient(165deg, #0f172a 0%, #1e3a8a 60%, #2563eb 100%);
+      padding-bottom: env(safe-area-inset-bottom,16px);
+    }
+
+    /* ━━━━━━━ 헤더 ━━━━━━━ */
+    .app-header {
+      width: 100%; padding: 14px 16px 12px;
+      padding-top: calc(14px + env(safe-area-inset-top,0px));
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(0,0,0,.25); backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      flex-shrink: 0;
+    }
+    .hdr-logo {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0;
+    }
+    .hdr-title h1 { font-size: 14px; font-weight: 800; color: white; }
+    .hdr-title p  { font-size: 11px; color: rgba(255,255,255,.5); margin-top: 1px; }
+    .btn-logout {
+      margin-left: auto; padding: 6px 12px;
+      background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.15);
+      border-radius: 8px; color: rgba(255,255,255,.7);
+      font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+      font-family: inherit;
+    }
+
+    /* ━━━━━━━ 테스트 배너 ━━━━━━━ */
+    .test-banner {
+      width: calc(100% - 28px); max-width: 480px;
+      margin: 10px 0 0; padding: 7px 12px;
+      background: rgba(245,158,11,.15); border: 1px solid rgba(245,158,11,.3);
+      border-radius: 9px; color: #fcd34d;
+      font-size: 11px; font-weight: 600;
+      display: none; align-items: center; gap: 6px;
+    }
+    .test-banner.show { display: flex; }
+
+    /* ━━━━━━━ 유저 바 ━━━━━━━ */
+    .user-bar {
+      width: calc(100% - 28px); max-width: 480px;
+      margin: 10px 0 0; padding: 10px 14px;
+      background: rgba(255,255,255,.1); backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,.15); border-radius: 12px;
+      display: none; align-items: center; gap: 10px;
+    }
+    .user-bar.show { display: flex; }
+    .user-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: rgba(255,255,255,.2);
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-weight: 900; font-size: 15px; flex-shrink: 0;
+    }
+    .user-name  { font-size: 14px; font-weight: 700; color: white; }
+    .user-birth { font-size: 11px; color: rgba(255,255,255,.55); }
+
+    /* ━━━━━━━ GPS 바 ━━━━━━━ */
+    .gps-bar {
+      width: calc(100% - 28px); max-width: 480px;
+      margin: 8px 0 0; padding: 7px 12px;
+      border-radius: 9px; font-size: 12px; font-weight: 600;
+      display: flex; align-items: center; gap: 7px;
+      transition: background .3s, border-color .3s;
+    }
+    .gps-checking { background: rgba(251,191,36,.12); border: 1px solid rgba(251,191,36,.25); color: #fcd34d; }
+    .gps-ok       { background: rgba(22,163,74,.15);  border: 1px solid rgba(22,163,74,.25);  color: #86efac; }
+    .gps-fail     { background: rgba(220,38,38,.15);  border: 1px solid rgba(220,38,38,.25);  color: #fca5a5; }
+
+    /* ━━━━━━━ 메인 카드 ━━━━━━━ */
+    .main-card {
+      width: calc(100% - 28px); max-width: 480px;
+      margin: 10px 0 0; background: white;
+      border-radius: 20px; overflow: hidden;
+      box-shadow: 0 24px 64px rgba(0,0,0,.4);
+      flex: 1; display: flex; flex-direction: column;
+    }
+
+    /* ━━━━━━━ 탭 바 ━━━━━━━ */
+    .tab-bar {
+      display: flex; background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0; flex-shrink: 0;
+    }
+    .tab-btn {
+      flex: 1; padding: 12px 8px; border: none; background: none;
+      font-size: 12px; font-weight: 600; color: #94a3b8;
+      cursor: pointer; position: relative; transition: color .2s;
+      font-family: inherit;
+    }
+    .tab-btn i { display: block; font-size: 17px; margin-bottom: 3px; }
+    .tab-btn.active { color: var(--primary); background: white; }
+    .tab-btn.active::after {
+      content: ''; position: absolute; bottom: 0; left: 12%; right: 12%;
+      height: 2.5px; background: var(--primary); border-radius: 2px;
+    }
+
+    /* ━━━━━━━ 스캔 탭 ━━━━━━━ */
+    #scanView { display: flex; flex-direction: column; flex: 1; }
+
+    /* 카메라 영역 */
+    .camera-wrap {
+      position: relative; background: #000;
+      aspect-ratio: 1; width: 100%; flex-shrink: 0; overflow: hidden;
+    }
+    #cameraVideo { width: 100%; height: 100%; object-fit: cover; display: block; }
+    #snapCanvas  { display: none; }
+
+    /* 스캔 오버레이 */
+    .scan-overlay {
+      position: absolute; inset: 0;
+      display: none; align-items: center; justify-content: center;
+    }
+    .scan-overlay.active { display: flex; }
+
+    /* 어두운 배경 + 구멍 */
+    .scan-shade {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,.55);
+      -webkit-mask: linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
+      -webkit-mask-composite: xor; mask-composite: exclude;
+      padding: 20%;
+    }
+
+    /* 코너 프레임 */
+    .scan-frame {
+      position: relative; width: 62%; aspect-ratio: 1;
+    }
+    .scan-frame::before, .scan-frame::after,
+    .scan-frame .c-bl, .scan-frame .c-br {
+      content: ''; position: absolute;
+      width: 24px; height: 24px;
+      border-style: solid; border-color: #60a5fa;
+    }
+    .scan-frame::before  { top: 0;    left: 0;  border-width: 3px 0 0 3px; border-radius: 5px 0 0 0; }
+    .scan-frame::after   { top: 0;    right: 0; border-width: 3px 3px 0 0; border-radius: 0 5px 0 0; }
+    .scan-frame .c-bl    { bottom: 0; left: 0;  border-width: 0 0 3px 3px; border-radius: 0 0 0 5px; }
+    .scan-frame .c-br    { bottom: 0; right: 0; border-width: 0 3px 3px 0; border-radius: 0 0 5px 0; }
+
+    /* 스캔 라인 */
+    .scan-line {
+      position: absolute; left: 6%; right: 6%; height: 2px;
+      background: linear-gradient(90deg,transparent,#3b82f6,#93c5fd,#3b82f6,transparent);
+      box-shadow: 0 0 10px rgba(59,130,246,.9);
+      animation: scanAnim 2.2s ease-in-out infinite;
+    }
+    @keyframes scanAnim { 0%,100% { top: 6%; } 50% { top: 88%; } }
+
+    /* 스캔 힌트 */
+    .scan-hint {
+      position: absolute; bottom: 10px;
+      background: rgba(0,0,0,.55); color: white;
+      font-size: 12px; font-weight: 600;
+      padding: 5px 14px; border-radius: 20px;
+    }
+
+    /* 카메라 꺼진 상태 */
+    .camera-idle {
+      position: absolute; inset: 0; background: #0d1117;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 14px;
+      color: rgba(255,255,255,.45);
+    }
+    .camera-idle i { font-size: 56px; opacity: .25; }
+    .camera-idle .idle-text { font-size: 14px; text-align: center; line-height: 1.7; }
+    .camera-idle .idle-hint { font-size: 11px; opacity: .5; text-align: center; line-height: 1.6; }
+
+    /* 처리 오버레이 */
+    .camera-processing {
+      position: absolute; inset: 0; background: rgba(0,0,0,.75);
+      display: none; align-items: center; justify-content: center;
+      flex-direction: column; gap: 12px; color: white;
+    }
+    .camera-processing.show { display: flex; }
+    .camera-processing .proc-spinner {
+      width: 44px; height: 44px;
+      border: 3px solid rgba(255,255,255,.2);
+      border-top-color: #60a5fa;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    .camera-processing p { font-size: 13px; opacity: .8; }
+
+    /* 스캔 액션 */
+    .scan-actions {
+      padding: 14px 16px 16px;
+      display: flex; gap: 10px; flex-shrink: 0;
+    }
+    .btn-cam {
+      flex: 1; padding: 15px 10px; border: none; border-radius: 14px;
+      font-size: 15px; font-weight: 800; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: all .2s; font-family: inherit;
+    }
+    .btn-cam-start {
+      background: var(--primary); color: white;
+      box-shadow: 0 4px 18px rgba(30,58,138,.45);
+    }
+    .btn-cam-start.scanning {
+      background: #dc2626; box-shadow: 0 4px 18px rgba(220,38,38,.4);
+    }
+    .btn-cam-start:active { transform: scale(.97); }
+    .btn-torch {
+      flex: none; width: 52px; border: 2px solid #e2e8f0;
+      background: white; color: #64748b; border-radius: 14px;
+      font-size: 18px; display: none;
+      align-items: center; justify-content: center; cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-torch.show { display: flex; }
+    .btn-torch.on   { background: #fef9c3; border-color: #fbbf24; color: #d97706; }
+
+    /* ━━━━━━━ 결과 영역 ━━━━━━━ */
+    .result-wrap { padding: 0 16px 14px; flex-shrink: 0; }
+    .result-card {
+      border-radius: 14px; padding: 18px 20px;
+      text-align: center; animation: popIn .3s ease;
+    }
+    @keyframes popIn { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .result-ok  { background: #f0fdf4; border: 2px solid #86efac; }
+    .result-err { background: #fff1f2; border: 2px solid #fca5a5; }
+    .result-card .r-icon { font-size: 40px; margin-bottom: 6px; }
+    .result-card .r-title { font-size: 17px; font-weight: 800; margin-bottom: 6px; }
+    .result-card .r-body  { font-size: 13px; color: #475569; line-height: 1.8; }
+    .result-card .btn-retry {
+      margin-top: 12px; padding: 10px 20px; border: none;
+      border-radius: 10px; background: var(--primary); color: white;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      font-family: inherit; display: inline-flex; align-items: center; gap: 6px;
+    }
+    /* 프로그레스 바 */
+    .r-progress { height: 3px; background: #e2e8f0; border-radius: 0 0 12px 12px; margin-top: 10px; overflow: hidden; }
+    .r-progress-bar { height: 100%; background: var(--primary); animation: shrink 8s linear forwards; }
+    @keyframes shrink { from { width: 100%; } to { width: 0; } }
+
+    /* ━━━━━━━ 수동 입력 탭 ━━━━━━━ */
+    #manualView { padding: 20px 16px; display: none; flex-direction: column; gap: 12px; flex: 1; }
+    .manual-icon {
+      text-align: center; padding: 16px 0 4px;
+    }
+    .manual-icon i { font-size: 44px; color: #cbd5e1; }
+    .manual-icon p { font-size: 12px; color: #94a3b8; margin-top: 8px; line-height: 1.6; }
+    .form-lbl { font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 5px; display: block; }
+    .form-inp {
+      width: 100%; padding: 12px 14px;
+      border: 1.5px solid #e2e8f0; border-radius: 10px;
+      font-size: 14px; font-family: inherit; color: #1e293b;
+      outline: none; transition: border-color .2s;
+    }
+    .form-inp:focus { border-color: var(--primary); }
+    .btn-submit {
+      width: 100%; padding: 15px; border: none; border-radius: 12px;
+      background: var(--primary); color: white;
+      font-size: 15px; font-weight: 800; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      box-shadow: 0 4px 14px rgba(30,58,138,.4); font-family: inherit;
+    }
+    .btn-submit:active { transform: scale(.98); }
+
+    /* ━━━━━━━ 오늘 현황 ━━━━━━━ */
+    .today-section {
+      border-top: 1px solid #f1f5f9;
+      padding: 0 16px 18px; flex-shrink: 0;
+    }
+    .today-title {
+      font-size: 11px; font-weight: 700; color: #94a3b8;
+      padding: 11px 0 7px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .today-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px; background: #f8fafc; border-radius: 10px; margin-bottom: 6px;
+    }
+    .ti-left .ti-course  { font-size: 13px; font-weight: 700; color: #1e293b; }
+    .ti-left .ti-info    { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+    .ti-left .ti-time    { font-size: 11px; color: #64748b; }
+    .ti-status { font-size: 22px; font-weight: 900; flex-shrink: 0; margin-left: 10px; }
+    .today-empty { font-size: 12px; color: #94a3b8; text-align: center; padding: 10px 0; }
+
+    /* ━━━━━━━ 카메라 권한 안내 모달 ━━━━━━━ */
+    .perm-modal {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(0,0,0,.7); backdrop-filter: blur(4px);
+      display: none; align-items: flex-end; justify-content: center;
+      padding-bottom: env(safe-area-inset-bottom,16px);
+    }
+    .perm-modal.show { display: flex; }
+    .perm-sheet {
+      width: 100%; max-width: 480px;
+      background: white; border-radius: 20px 20px 0 0;
+      padding: 20px 24px 28px;
+      animation: slideUp .3s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .perm-sheet .ps-title { font-size: 17px; font-weight: 800; color: #1e293b; margin-bottom: 8px; }
+    .perm-sheet .ps-body  { font-size: 13px; color: #475569; line-height: 1.8; margin-bottom: 18px; }
+    .perm-sheet .ps-steps {
+      background: #f8fafc; border-radius: 10px; padding: 12px 14px;
+      font-size: 12px; color: #374151; line-height: 2; margin-bottom: 18px;
+    }
+    .btn-perm {
+      width: 100%; padding: 14px; border: none; border-radius: 12px;
+      background: var(--primary); color: white;
+      font-size: 15px; font-weight: 800; cursor: pointer; font-family: inherit;
+    }
+
+    /* ━━━━━━━ 공통 ━━━━━━━ */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      display: inline-block; width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: white; border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    /* 토스트 */
+    #toast {
+      position: fixed; bottom: calc(20px + env(safe-area-inset-bottom,0px));
+      left: 50%; transform: translateX(-50%) translateY(60px);
+      background: #1e293b; color: white; padding: 9px 18px;
+      border-radius: 24px; font-size: 13px; font-weight: 600;
+      box-shadow: 0 8px 24px rgba(0,0,0,.3); white-space: nowrap;
+      transition: transform .3s; z-index: 50; pointer-events: none;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- 헤더 -->
+  <header class="app-header">
+    <div class="hdr-logo">🏫</div>
+    <div class="hdr-title">
+      <h1>성남여성인력개발센터</h1>
+      <p>QR 카메라 출결</p>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">
+      <i class="fa fa-sign-out-alt"></i> 로그아웃
+    </button>
+  </header>
+
+  <!-- 테스트 배너 -->
+  <div class="test-banner" id="testBanner">
+    <i class="fa fa-flask"></i> 🧪 테스트 모드 — GPS·날짜 검증 비활성화
+  </div>
+
+  <!-- 유저 바 -->
+  <div class="user-bar" id="userBar">
+    <div class="user-avatar" id="userAvatar">?</div>
+    <div>
+      <div class="user-name"  id="userName">-</div>
+      <div class="user-birth" id="userBirth">-</div>
+    </div>
+  </div>
+
+  <!-- GPS 상태 (GPS 검증 활성화 시에만 표시) -->
+  <div class="gps-bar gps-checking" id="gpsBar" style="display:none;">
+    <i class="fa fa-location-dot"></i>
+    <span id="gpsText">위치 확인 중...</span>
+  </div>
+
+  <!-- 메인 카드 -->
+  <div class="main-card">
+
+    <!-- 탭 (QR 스캔만 표시) -->
+    <div class="tab-bar" style="display:none;" id="tabBar">
+      <button class="tab-btn active" id="tabScan"   onclick="switchTab('scan')">
+        <i class="fa fa-camera"></i> QR 스캔
+      </button>
+    </div>
+
+    <!-- ── 스캔 탭 ── -->
+    <div id="scanView">
+
+      <!-- 카메라 영역 -->
+      <div class="camera-wrap" id="cameraWrap">
+        <video id="cameraVideo" autoplay playsinline muted></video>
+        <canvas id="snapCanvas"></canvas>
+
+        <!-- 스캔 가이드 -->
+        <div class="scan-overlay" id="scanOverlay">
+          <div class="scan-shade"></div>
+          <div class="scan-frame">
+            <span class="c-bl"></span>
+            <span class="c-br"></span>
+            <div class="scan-line"></div>
+          </div>
+          <div class="scan-hint">QR 코드를 네모 안에 맞추세요</div>
+        </div>
+
+        <!-- 처리 오버레이 -->
+        <div class="camera-processing" id="procOverlay">
+          <div class="proc-spinner"></div>
+          <p>출결 처리 중...</p>
+        </div>
+
+        <!-- 유휴 상태 -->
+        <div class="camera-idle" id="cameraIdle">
+          <i class="fa fa-camera"></i>
+          <div class="idle-text">카메라 시작 버튼을 누르세요</div>
+          <div class="idle-hint">
+            관리자가 표시한 QR 코드를<br/>카메라로 스캔해 출결을 처리합니다.
+          </div>
+        </div>
+      </div>
+
+      <!-- 버튼 -->
+      <div class="scan-actions">
+        <button class="btn-cam btn-cam-start" id="scanBtn" onclick="toggleCamera()">
+          <i class="fa fa-camera" id="scanBtnIcon"></i>
+          <span id="scanBtnText">카메라 시작</span>
+        </button>
+        <button class="btn-torch" id="torchBtn" onclick="toggleTorch()" title="손전등">
+          <i class="fa fa-bolt"></i>
+        </button>
+      </div>
+
+      <!-- 결과 -->
+      <div class="result-wrap" id="resultWrap" style="display:none;"></div>
+    </div>
+
+    <!-- ── 수동 입력 탭 (숨김 - 사용 안 함) ── -->
+    <div id="manualView" style="display:none;">
+      <div id="manualResult" style="display:none;"></div>
+    </div>
+
+    <!-- 오늘 현황 -->
+    <div class="today-section" id="todaySection" style="display:none;">
+      <div class="today-title"><i class="fa fa-calendar-check"></i> 오늘 출결 현황</div>
+      <div id="todayList"></div>
+    </div>
+
+  </div><!-- /.main-card -->
+
+</div><!-- /.app -->
+
+<!-- 카메라 권한 안내 시트 -->
+<div class="perm-modal" id="permModal">
+  <div class="perm-sheet">
+    <div class="ps-title">📷 카메라 권한 필요</div>
+    <div class="ps-body">
+      QR 코드를 스캔하려면 카메라 접근 권한이 필요합니다.<br/>
+      브라우저에서 카메라 권한을 허용해 주세요.
+    </div>
+    <div class="ps-steps" id="permSteps">
+      <!-- 브라우저별 안내가 JS에서 삽입됩니다 -->
+    </div>
+    <button class="btn-perm" onclick="closePermModal()">확인했습니다</button>
+  </div>
+</div>
+
+<!-- 토스트 -->
+<div id="toast"></div>
+
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════
+// 전역 상태
+// ════════════════════════════════════════════════════════════
+const TEST_MODE = new URLSearchParams(window.location.search).get('test') === '1';
+
+let participantSession = getAuthSession();
+let gpsValid    = false;
+let gpsPosition = null;
+let cameraStream    = null;
+let torchTrack      = null;
+let torchOn         = false;
+let scanLoopId      = null;
+let processingQR    = false;
+let currentTab      = 'scan';
+let resultClearTimer = null;
+
+// ════════════════════════════════════════════════════════════
+// 초기화
+// ════════════════════════════════════════════════════════════
+(function init() {
+  if (!participantSession) {
+    window.location.href = 'login.html?tab=participant' + (TEST_MODE ? '&test=1' : '');
+    return;
+  }
+
+  // 테스트 배너
+  if (TEST_MODE) document.getElementById('testBanner').classList.add('show');
+
+  // 유저 정보
+  document.getElementById('userBar').classList.add('show');
+  document.getElementById('userAvatar').textContent = (participantSession.name || '?').charAt(0);
+  document.getElementById('userName').textContent   = participantSession.name || '-';
+  document.getElementById('userBirth').textContent  = participantSession.birthDate || '';
+
+  // URL 파라미터로 직접 QR 처리 (QR 스캔 링크 직접 열었을 때)
+  // sessionId 없이 courseId만 있어도 처리 (과정 단위 QR)
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('token') && (params.get('sessionId') || params.get('courseId'))) {
+    setTimeout(() => processQRUrl(window.location.href), 600);
+  }
+
+  startGPS();
+  loadTodayStatus();
+})();
+
+function doLogout() {
+  stopCamera();
+  clearAuthSession();
+  window.location.href = 'login.html';
+}
+
+// ════════════════════════════════════════════════════════════
+// GPS
+// ════════════════════════════════════════════════════════════
+function startGPS() {
+  const s = getSettings();
+
+  // GPS 검증 비활성화(기본값) → GPS 바 숨기고 항상 통과
+  if (!s.gpsRequired) {
+    gpsValid = true;
+    document.getElementById('gpsBar').style.display = 'none';
+    return;
+  }
+
+  // GPS 검증 활성화 시에만 GPS 바 표시
+  document.getElementById('gpsBar').style.display = 'flex';
+
+  if (TEST_MODE) {
+    gpsValid = true;
+    gpsPosition = { coords: { latitude: 0, longitude: 0, accuracy: 0 } };
+    setGPS('ok', '🧪 테스트 모드 — GPS 우회');
+    return;
+  }
+  if (!navigator.geolocation) {
+    // GPS 미지원이어도 gpsRequired=false면 통과 (위에서 처리됨)
+    gpsValid = false;
+    setGPS('fail', 'GPS 미지원 기기입니다 (Chrome 필요)');
+    return;
+  }
+  navigator.geolocation.watchPosition(
+    pos => {
+      gpsPosition = pos;
+      const acc = pos.coords.accuracy;
+      const maxAcc = s.maxAccuracy || 100;
+      if (acc > maxAcc) {
+        gpsValid = false;
+        setGPS('warn', `📡 GPS 정확도 낮음 (${Math.round(acc)}m) — 출결은 가능합니다`);
+        gpsValid = true; // 정확도 낮아도 출결은 허용
+        return;
+      }
+      const { isInside, distance } = isWithinGeofence(
+        pos.coords.latitude, pos.coords.longitude, s.centerLat, s.centerLng, s.centerRadius
+      );
+      if (!isInside) {
+        gpsValid = false;
+        setGPS('fail', `📍 센터 밖 (${Math.round(distance)}m) — 센터 내에서 시도하세요`);
+      } else {
+        gpsValid = true;
+        setGPS('ok', `📍 위치 확인 완료 (${Math.round(distance)}m 이내)`);
+      }
+    },
+    err => {
+      // GPS 오류 시에도 gpsRequired=false면 통과
+      gpsValid = !s.gpsRequired;
+      const m = {
+        1: '📵 위치 권한 거부 — 브라우저 설정에서 허용해 주세요',
+        2: '📡 GPS 신호 없음',
+        3: '⏱ GPS 시간 초과'
+      };
+      setGPS(gpsValid ? 'ok' : 'fail', (m[err.code] || 'GPS 오류') + (gpsValid ? ' (출결은 가능)' : ''));
+    },
+    { enableHighAccuracy: true, maximumAge: 8000, timeout: 30000 }
+  );
+}
+
+function setGPS(state, msg) {
+  const el = document.getElementById('gpsBar');
+  el.className = 'gps-bar gps-' + state;
+  document.getElementById('gpsText').textContent = msg;
+}
+
+// ════════════════════════════════════════════════════════════
+// 탭 전환
+// ════════════════════════════════════════════════════════════
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tabScan').classList.toggle('active',   tab === 'scan');
+  document.getElementById('tabManual').classList.toggle('active', tab === 'manual');
+  document.getElementById('scanView').style.display   = tab === 'scan'   ? 'flex' : 'none';
+  document.getElementById('manualView').style.display = tab === 'manual' ? 'flex' : 'none';
+  if (tab !== 'scan') stopCamera();
+}
+
+// ════════════════════════════════════════════════════════════
+// 카메라 제어
+// ════════════════════════════════════════════════════════════
+async function toggleCamera() {
+  if (cameraStream) { stopCamera(); return; }
+  await startCamera();
+}
+
+async function startCamera() {
+  const btn     = document.getElementById('scanBtn');
+  const btnIcon = document.getElementById('scanBtnIcon');
+  const btnText = document.getElementById('scanBtnText');
+
+  btn.disabled = true;
+  btnIcon.className = 'spinner';
+  btnText.textContent = '시작 중...';
+
+  try {
+    // 후면 카메라 우선
+    const constraints = {
+      video: {
+        facingMode: { ideal: 'environment' },
+        width:  { ideal: 1280 },
+        height: { ideal: 960 }
+      }
+    };
+    cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+    const video = document.getElementById('cameraVideo');
+    video.srcObject = cameraStream;
+    await video.play();
+
+    // 손전등 지원 확인
+    torchTrack = cameraStream.getVideoTracks()[0];
+    const caps = torchTrack?.getCapabilities?.() || {};
+    if (caps.torch) document.getElementById('torchBtn').classList.add('show');
+
+    // UI 업데이트
+    document.getElementById('cameraIdle').style.display = 'none';
+    document.getElementById('scanOverlay').classList.add('active');
+    btn.disabled = false;
+    btn.classList.add('scanning');
+    btnIcon.className = 'fa fa-stop';
+    btnText.textContent = '스캔 중지';
+
+    startScanLoop();
+
+  } catch (err) {
+    console.error('카메라 오류:', err);
+    stopCamera();
+
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      showPermModal();
+    } else {
+      let msg = '카메라를 시작할 수 없습니다.';
+      if (err.name === 'NotFoundError')    msg = '카메라를 찾을 수 없습니다. 기기를 확인하세요.';
+      if (err.name === 'NotReadableError') msg = '카메라가 다른 앱에서 사용 중입니다.';
+      if (err.name === 'OverconstrainedError') {
+        // 후면 카메라 실패 → 기본 카메라 시도
+        await startCameraFallback();
+        return;
+      }
+      showToastMsg(msg, 4000);
+    }
+  }
+}
+
+// 기본 카메라 재시도 (환경 제약 없이)
+async function startCameraFallback() {
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+    const video = document.getElementById('cameraVideo');
+    video.srcObject = cameraStream;
+    await video.play();
+
+    document.getElementById('cameraIdle').style.display = 'none';
+    document.getElementById('scanOverlay').classList.add('active');
+    const btn = document.getElementById('scanBtn');
+    btn.disabled = false; btn.classList.add('scanning');
+    document.getElementById('scanBtnIcon').className = 'fa fa-stop';
+    document.getElementById('scanBtnText').textContent = '스캔 중지';
+    startScanLoop();
+  } catch (e) {
+    stopCamera();
+    showToastMsg('카메라 연결에 실패했습니다.', 3000);
+  }
+}
+
+function stopCamera() {
+  if (scanLoopId) { cancelAnimationFrame(scanLoopId); scanLoopId = null; }
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null; torchTrack = null; torchOn = false;
+  }
+  const video = document.getElementById('cameraVideo');
+  video.srcObject = null;
+
+  document.getElementById('cameraIdle').style.display = 'flex';
+  document.getElementById('scanOverlay').classList.remove('active');
+  document.getElementById('torchBtn').classList.remove('show', 'on');
+  document.getElementById('procOverlay').classList.remove('show');
+
+  const btn = document.getElementById('scanBtn');
+  btn.disabled = false;
+  btn.classList.remove('scanning');
+  document.getElementById('scanBtnIcon').className = 'fa fa-camera';
+  document.getElementById('scanBtnText').textContent = '카메라 시작';
+}
+
+// ════════════════════════════════════════════════════════════
+// QR 스캔 루프 (jsQR)
+// ════════════════════════════════════════════════════════════
+function startScanLoop() {
+  const video  = document.getElementById('cameraVideo');
+  const canvas = document.getElementById('snapCanvas');
+  const ctx    = canvas.getContext('2d', { willReadFrequently: true });
+
+  function loop() {
+    if (!cameraStream) return;
+    if (video.readyState >= video.HAVE_ENOUGH_DATA) {
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      if (vw > 0 && vh > 0) {
+        canvas.width  = vw;
+        canvas.height = vh;
+        ctx.drawImage(video, 0, 0);
+        const img  = ctx.getImageData(0, 0, vw, vh);
+        const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+        if (code && !processingQR) {
+          processingQR = true;
+          if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+          document.getElementById('procOverlay').classList.add('show');
+          processQRUrl(code.data)
+            .finally(() => {
+              document.getElementById('procOverlay').classList.remove('show');
+              stopCamera();
+              setTimeout(() => { processingQR = false; }, 2500);
+            });
+          return;
+        }
+      }
+    }
+    scanLoopId = requestAnimationFrame(loop);
+  }
+  scanLoopId = requestAnimationFrame(loop);
+}
+
+// ════════════════════════════════════════════════════════════
+// 손전등
+// ════════════════════════════════════════════════════════════
+async function toggleTorch() {
+  if (!torchTrack) return;
+  try {
+    torchOn = !torchOn;
+    await torchTrack.applyConstraints({ advanced: [{ torch: torchOn }] });
+    document.getElementById('torchBtn').classList.toggle('on', torchOn);
+  } catch { torchOn = false; }
+}
+
+// ════════════════════════════════════════════════════════════
+// 수동 입력
+// ════════════════════════════════════════════════════════════
+async function processManual() {
+  const val = document.getElementById('manualInput').value.trim();
+  if (!val) { showToastMsg('URL 또는 토큰을 입력하세요', 2000); return; }
+
+  // 수동 결과 영역 초기화
+  const mr = document.getElementById('manualResult');
+  mr.style.display = 'none';
+  mr.innerHTML = '';
+
+  await processQRUrl(val, true /* isManual */);
+}
+
+// ════════════════════════════════════════════════════════════
+// ── 핵심: QR 출결 처리 ──
+// ════════════════════════════════════════════════════════════
+async function processQRUrl(urlOrToken, isManual = false) {
+  const resultTarget = isManual ? 'manual' : 'scan';
+
+  // GPS 검증 — 설정에서 gpsRequired=true 이고 GPS 실패 시에만 차단
+  // ※ 기본값 gpsRequired=false 이므로 별도 설정 전까지는 항상 통과
+  const _s = getSettings();
+  if (!TEST_MODE && _s.gpsRequired === true && !gpsValid) {
+    showResult(false, 'GPS 오류',
+      '📍 센터 내에서만 출결 가능합니다.<br/>위치 권한을 허용하고 센터 안에서 시도하세요.',
+      resultTarget);
+    return;
+  }
+
+  showLoading(resultTarget);
+
+  try {
+    // ── URL / 토큰 파싱 ────────────────────────────────────
+    let token, sessionId, courseId, tokenId;
+
+    if (urlOrToken.includes('qr-check') || urlOrToken.includes('?')) {
+      let fullUrl = urlOrToken;
+      if (!urlOrToken.startsWith('http')) fullUrl = window.location.origin + '/' + urlOrToken;
+      try {
+        const u  = new URL(fullUrl);
+        token     = u.searchParams.get('token');
+        sessionId = u.searchParams.get('sessionId');
+        courseId  = u.searchParams.get('courseId');
+        tokenId   = u.searchParams.get('tid');
+      } catch {
+        // URL 파싱 실패 → 토큰으로 시도
+        token = urlOrToken;
+      }
+    } else {
+      token = urlOrToken.trim();
+    }
+
+    // 로컬 저장 QR에서 sessionId/courseId 복원
+    if (!sessionId) {
+      const stored = localStorage.getItem('snwdc_current_qr');
+      if (stored) {
+        try {
+          const q = JSON.parse(stored);
+          if (q.token === token) {
+            sessionId = q.sessionId;
+            courseId  = q.courseId;
+            tokenId   = q.id;
+          }
+        } catch {}
+      }
+    }
+
+    if (!token || !courseId) {
+      showResult(false, 'QR 오류',
+        '❌ 유효하지 않은 QR 코드입니다.<br/>관리자에게 새 QR 코드를 요청하세요.',
+        resultTarget);
+      return;
+    }
+
+    // ── 오늘 날짜의 세션 자동 매칭 ────────────────────────
+    // QR은 과정 단위로 발급 → 오늘 날짜에 해당하는 세션을 자동으로 찾음
+    const today = getTodaySeoul();
+
+    let session = null;
+    if (sessionId) {
+      // URL에 sessionId가 명시된 경우 (구버전 QR 호환)
+      session = await apiGetById('sessions', sessionId);
+    } else {
+      // 과정의 오늘 세션 자동 검색
+      const allSessions = await apiGetAll('sessions');
+      const todaySessions = allSessions.filter(s =>
+        s.courseId === courseId &&
+        s.date === (TEST_MODE ? s.date : today) &&  // 테스트모드: 날짜 무관
+        !s.isCancelled && !s.isInactive
+      );
+      // 테스트모드: 오늘 세션 없으면 가장 가까운 세션 사용
+      if (todaySessions.length === 0 && TEST_MODE) {
+        const sorted = allSessions
+          .filter(s => s.courseId === courseId && !s.isCancelled && !s.isInactive)
+          .sort((a, b) => a.date.localeCompare(b.date));
+        session = sorted[sorted.length - 1] || sorted[0] || null;
+      } else {
+        session = todaySessions[0] || null;
+      }
+    }
+
+    if (!session) {
+      showResult(false, '오늘 수업 없음',
+        `📅 오늘(${today})은 수업이 없습니다.<br/>수업 날짜를 확인하거나 담당자에게 문의하세요.`,
+        resultTarget);
+      return;
+    }
+    sessionId = session.id;  // 이후 로직에서 사용
+
+    // ── 과정 조회 ──────────────────────────────────────────
+    const course = courseId ? await apiGetById('courses', courseId) : null;
+
+    if (session.isCancelled) {
+      showResult(false, '휴강',
+        `📅 ${session.date} 수업은 <strong>휴강</strong>입니다.`,
+        resultTarget);
+      return;
+    }
+
+    // ── 수강 확인 ──────────────────────────────────────────
+    const enrollments = await apiGetAll('enrollments');
+    const enrolled = enrollments.find(e =>
+      e.courseId === (courseId || session.courseId) &&
+      e.participantId === participantSession.id &&
+      !e.deleted
+    );
+    if (!enrolled) {
+      showResult(false, '수강 미등록',
+        '이 과정의 수강생이 아닙니다.<br/>담당자에게 문의하세요.',
+        resultTarget);
+      return;
+    }
+
+    // ── 기존 출결 레코드 ───────────────────────────────────
+    const allRecords = await apiGetAll('attendance_records');
+    const existing = allRecords.find(r =>
+      r.sessionId === sessionId && r.participantId === participantSession.id
+    );
+
+    if (existing?.checkInAt && existing?.checkOutAt) {
+      showResult(false, '이미 완료',
+        `출결이 이미 완료되었습니다.<br/>
+        🕐 입실 <strong>${formatTimeHM(existing.checkInAt)}</strong> →
+        퇴실 <strong>${formatTimeHM(existing.checkOutAt)}</strong><br/>
+        <small style="color:#94a3b8;">수정이 필요하면 관리자에게 문의하세요</small>`,
+        resultTarget);
+      return;
+    }
+
+    // ── 이벤트 기록 ────────────────────────────────────────
+    const now       = new Date().toISOString();
+    const eventType = (!existing || !existing.checkInAt) ? 'checkin' : 'checkout';
+    const gps       = gpsPosition?.coords;
+
+    await apiPost('attendance_events', {
+      id:                 generateUUID(),
+      participantId:      participantSession.id,
+      sessionId,
+      attendanceRecordId: existing?.id || '',
+      eventType,
+      timestamp:          now,
+      qrTokenId:          tokenId || 'manual',
+      gpsLat:             gps?.latitude  || null,
+      gpsLng:             gps?.longitude || null,
+      gpsAccuracy:        gps?.accuracy  || null,
+      locationValid:      gpsValid,
+      deviceInfo:         navigator.userAgent.substring(0, 120)
+    });
+
+    // ── 출결 레코드 저장/업데이트 ──────────────────────────
+    const config = {
+      lateGraceMinutes:  course?.lateGraceMinutes  ?? 10,
+      earlyGraceMinutes: course?.earlyGraceMinutes ?? 10,
+      recognitionRate:   course?.recognitionRate   ?? 0.5
+    };
+    const cid = courseId || session.courseId;
+
+    if (eventType === 'checkin') {
+      if (existing) {
+        await apiPatch('attendance_records', existing.id, { checkInAt: now, statusCode: '?' });
+      } else {
+        await apiPost('attendance_records', {
+          id:              generateUUID(),
+          sessionId,
+          courseId:        cid,
+          participantId:   participantSession.id,
+          checkInAt:       now,
+          checkOutAt:      null,
+          statusCode:      '?',
+          attendedMinutes: 0,
+          isRecognized:    false,
+          finalized:       false,
+          manuallyAdjusted: false
+        });
+      }
+
+      const lateDeadline = new Date(new Date(session.startDateTime).getTime() + config.lateGraceMinutes * 60000);
+      const isLate       = new Date(now) > lateDeadline;
+
+      showResult(true, '✅ 입실 완료!',
+        `<strong style="font-size:16px;">${escapeHtml(participantSession.name)}</strong>님 입실 기록 완료<br/><br/>
+        🕐 입실 시각 &nbsp;<strong>${formatTimeHM(now)}</strong>
+        ${isLate ? ' <span style="background:#fef9c3;color:#d97706;font-size:10px;padding:2px 6px;border-radius:4px;">지각</span>' : ' <span style="background:#dcfce7;color:#16a34a;font-size:10px;padding:2px 6px;border-radius:4px;">정상</span>'}<br/>
+        📚 수업 &nbsp;${formatTimeHM(session.startDateTime)} ~ ${formatTimeHM(session.endDateTime)}<br/>
+        <span style="color:#94a3b8;font-size:11px;display:block;margin-top:6px;">퇴실 시 같은 QR을 다시 스캔하세요</span>`,
+        resultTarget);
+
+    } else {
+      // 퇴실 처리
+      const result = determineAttendanceStatus(
+        existing.checkInAt, now, session.startDateTime, session.endDateTime, config
+      );
+      await apiPatch('attendance_records', existing.id, {
+        checkOutAt:      now,
+        statusCode:      result.statusCode,
+        attendedMinutes: result.attendedMinutes,
+        isRecognized:    result.isRecognized,
+        finalized:       result.finalized
+      });
+
+      const SC     = result.statusCode;
+      const colors = { '○':'#16a34a','◎':'#d97706','▲':'#ea580c','◎▲':'#dc2626','X':'#dc2626','?':'#64748b' };
+      const labels = { '○':'출석','◎':'지각','▲':'조퇴','◎▲':'지각+조퇴','X':'결석','?':'미완료' };
+
+      showResult(true, '✅ 퇴실 완료!',
+        `<strong style="font-size:16px;">${escapeHtml(participantSession.name)}</strong>님 퇴실 기록 완료<br/><br/>
+        🕐 퇴실 시각 &nbsp;<strong>${formatTimeHM(now)}</strong><br/>
+        ⏱️ 참여 시간 &nbsp;<strong>${result.attendedMinutes}분</strong><br/>
+        📋 최종 상태 &nbsp;<span style="font-size:26px;font-weight:900;color:${colors[SC]||'#64748b'};">${SC}</span>
+        <span style="color:${colors[SC]||'#64748b'};font-size:13px;font-weight:700;"> ${labels[SC]||''}</span>`,
+        resultTarget);
+    }
+
+    loadTodayStatus();
+
+  } catch (err) {
+    console.error('processQRUrl 오류:', err);
+    showResult(false, '처리 오류',
+      `출결 처리 중 오류가 발생했습니다.<br/>
+      <small style="color:#94a3b8;">${escapeHtml(err.message || '알 수 없는 오류')}</small>`,
+      resultTarget,
+      true /* showRetry */);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// 결과 표시 헬퍼
+// ════════════════════════════════════════════════════════════
+function getResultContainer(target) {
+  return target === 'manual'
+    ? document.getElementById('manualResult')
+    : document.getElementById('resultWrap');
+}
+
+function showLoading(target) {
+  const w = getResultContainer(target);
+  w.style.display = 'block';
+  w.innerHTML = `
+    <div style="padding:20px;text-align:center;">
+      <div style="width:32px;height:32px;border:3px solid #e2e8f0;border-top-color:#1e3a8a;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;"></div>
+      <div style="font-size:13px;color:#64748b;">출결 정보 확인 중...</div>
+    </div>`;
+}
+
+function showResult(ok, title, body, target = 'scan', showRetry = false) {
+  const w = getResultContainer(target);
+  w.style.display = 'block';
+
+  if (resultClearTimer) { clearTimeout(resultClearTimer); resultClearTimer = null; }
+
+  const retryBtn = showRetry
+    ? `<button class="btn-retry" onclick="retryCamera()"><i class="fa fa-rotate-right"></i> 다시 스캔</button>`
+    : '';
+
+  w.innerHTML = `
+    <div class="result-card ${ok ? 'result-ok' : 'result-err'}">
+      <div class="r-icon">${ok ? '✅' : '❌'}</div>
+      <div class="r-title" style="color:${ok ? '#16a34a' : '#dc2626'};">${title}</div>
+      <div class="r-body">${body}</div>
+      ${ok || showRetry ? `
+        <button class="btn-retry" onclick="retryCamera()" style="margin-top:12px;">
+          <i class="fa fa-camera"></i> 다시 스캔
+        </button>` : ''}
+      <div class="r-progress"><div class="r-progress-bar"></div></div>
+    </div>`;
+
+  resultClearTimer = setTimeout(() => {
+    w.style.display = 'none';
+    w.innerHTML = '';
+  }, 9000);
+}
+
+function retryCamera() {
+  // 결과 닫고 카메라 재시작
+  const w = document.getElementById('resultWrap');
+  w.style.display = 'none'; w.innerHTML = '';
+  if (currentTab !== 'scan') switchTab('scan');
+  setTimeout(startCamera, 200);
+}
+
+// ════════════════════════════════════════════════════════════
+// 오늘 현황
+// ════════════════════════════════════════════════════════════
+async function loadTodayStatus() {
+  try {
+    const today = getTodaySeoul();
+
+    // ① 이 참여자의 수강 과정 ID 목록 가져오기
+    const enrollments = await apiGetAll('enrollments');
+    const myCourseIds = enrollments
+      .filter(e => e.participantId === participantSession.id && !e.deleted)
+      .map(e => e.courseId);
+
+    if (!myCourseIds.length) return;
+
+    // ② 오늘 세션 중 내가 수강 중인 과정만 필터
+    const allSessions = await apiGetAll('sessions');
+    const sessions = allSessions.filter(s =>
+      s.date === today &&
+      !s.isCancelled && !s.isInactive &&
+      myCourseIds.includes(s.courseId)
+    );
+
+    const section = document.getElementById('todaySection');
+    const list    = document.getElementById('todayList');
+
+    if (!sessions.length) {
+      // 수강 과정은 있지만 오늘 세션이 없는 경우
+      section.style.display = 'block';
+      list.innerHTML = '<div class="today-empty">오늘 예정된 수업이 없습니다.</div>';
+      return;
+    }
+
+    section.style.display = 'block';
+
+    const [records, courses] = await Promise.all([
+      apiGetAll('attendance_records'),
+      apiGetAll('courses')
+    ]);
+
+    // 내 출결 기록만
+    const myRec = records.filter(r =>
+      r.participantId === participantSession.id &&
+      sessions.some(s => s.id === r.sessionId)
+    );
+
+    const SC_COLOR = { '○':'#16a34a','◎':'#d97706','▲':'#ea580c','◎▲':'#dc2626','X':'#dc2626','?':'#94a3b8' };
+    const SC_LABEL = { '○':'출석','◎':'지각','▲':'조퇴','◎▲':'지각+조퇴','X':'결석','?':'미완료' };
+
+    list.innerHTML = sessions.map(s => {
+      const r    = myRec.find(r => r.sessionId === s.id);
+      const c    = courses.find(c => c.id === s.courseId);
+      const code = r ? (r.statusCode || '?') : null;
+      const clr  = code ? (SC_COLOR[code] || '#94a3b8') : '#94a3b8';
+
+      // 입실/퇴실 상태 표시
+      let statusHtml = '';
+      if (!r || !r.checkInAt) {
+        statusHtml = `
+          <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+            <span style="background:#fee2e2;color:#dc2626;font-size:11px;padding:2px 8px;border-radius:20px;">미체크</span>
+          </div>`;
+      } else if (r.checkInAt && !r.checkOutAt) {
+        statusHtml = `
+          <div style="display:flex;flex-direction:column;gap:3px;margin-top:6px;">
+            <div class="ti-time">✅ 입실 <strong>${formatTimeHM(r.checkInAt)}</strong></div>
+            <div class="ti-time" style="color:#f59e0b;">⏳ 퇴실 미완료 — 퇴실 시 다시 스캔하세요</div>
+          </div>`;
+      } else {
+        statusHtml = `
+          <div style="display:flex;flex-direction:column;gap:3px;margin-top:6px;">
+            <div class="ti-time">✅ 입실 <strong>${formatTimeHM(r.checkInAt)}</strong></div>
+            <div class="ti-time">✅ 퇴실 <strong>${formatTimeHM(r.checkOutAt)}</strong></div>
+          </div>`;
+      }
+
+      return `<div class="today-item">
+        <div class="ti-left">
+          <div class="ti-course">${escapeHtml(c?.name || '과정')}</div>
+          <div class="ti-info">${s.sessionNo || ''}회차 &nbsp; ${formatTimeHM(s.startDateTime)} ~ ${formatTimeHM(s.endDateTime)}</div>
+          ${statusHtml}
+        </div>
+        <div class="ti-status" style="color:${clr};font-size:${code ? '22px' : '13px'}">
+          ${code || '-'}
+          ${code ? `<div style="font-size:10px;color:${clr};margin-top:2px;">${SC_LABEL[code]||''}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  } catch (err) {
+    console.error('loadTodayStatus 오류:', err);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// 카메라 권한 안내 모달
+// ════════════════════════════════════════════════════════════
+function showPermModal() {
+  const ua = navigator.userAgent;
+  let steps = '';
+  if (/iPhone|iPad/.test(ua)) {
+    steps = `<strong>iOS Safari 설정 방법</strong><br/>
+      1. 화면 상단 주소창 왼쪽 <strong>Aₐ</strong> 또는 🔒 아이콘 클릭<br/>
+      2. <strong>웹사이트 설정</strong> 선택<br/>
+      3. <strong>카메라</strong> → <strong>허용</strong> 선택<br/>
+      4. 페이지 새로고침 후 다시 시도`;
+  } else if (/Android/.test(ua)) {
+    steps = `<strong>Android Chrome 설정 방법</strong><br/>
+      1. 주소창 오른쪽 🔒 자물쇠 아이콘 클릭<br/>
+      2. <strong>사이트 설정</strong> 선택<br/>
+      3. <strong>카메라</strong> → <strong>허용</strong> 선택<br/>
+      4. 페이지 새로고침 후 다시 시도`;
+  } else {
+    steps = `<strong>브라우저 설정 방법</strong><br/>
+      1. 주소창 왼쪽 자물쇠(🔒) 아이콘 클릭<br/>
+      2. 카메라 권한을 <strong>허용</strong>으로 변경<br/>
+      3. 페이지 새로고침 후 다시 시도`;
+  }
+  document.getElementById('permSteps').innerHTML = steps;
+  document.getElementById('permModal').classList.add('show');
+}
+
+function closePermModal() {
+  document.getElementById('permModal').classList.remove('show');
+}
+
+// ════════════════════════════════════════════════════════════
+// 토스트 / 유틸
+// ════════════════════════════════════════════════════════════
+let toastTimer = null;
+function showToastMsg(msg, duration = 3000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), duration);
+}
+// utils.js showToast 오버라이드
+window.showToast = (msg, type, dur) => showToastMsg(msg, dur || 3000);
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// 페이지 이탈 시 카메라 정리
+window.addEventListener('pagehide',     () => stopCamera());
+window.addEventListener('beforeunload', () => stopCamera());
+</script>
+</body>
+</html>

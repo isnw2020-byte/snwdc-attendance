@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+  <title>QR 출결 테스트 - 성남여성인력개발센터</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    .test-hero {
+      background: linear-gradient(135deg, #0f172a, #1e3a8a, #2563eb);
+      color: white; border-radius: 16px; padding: 28px 24px; margin-bottom: 24px;
+    }
+    .test-hero h2 { font-size: 20px; font-weight: 900; margin-bottom: 8px; }
+    .test-hero p  { font-size: 13px; opacity: .75; line-height: 1.7; }
+    .badge-test {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(245,158,11,.2); border: 1px solid rgba(245,158,11,.4);
+      color: #fcd34d; font-size: 11px; font-weight: 700;
+      padding: 3px 10px; border-radius: 20px; margin-bottom: 12px;
+    }
+    .steps { counter-reset: step; display: flex; flex-direction: column; gap: 12px; }
+    .step-item {
+      display: flex; align-items: flex-start; gap: 14px;
+      background: white; border: 1px solid #e2e8f0; border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .step-num {
+      counter-increment: step;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: #1e3a8a; color: white;
+      font-size: 13px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    .step-content h4 { font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+    .step-content p  { font-size: 12px; color: #64748b; line-height: 1.7; }
+    .step-content a  { color: #1e3a8a; font-weight: 600; }
+    .step-content code {
+      background: #f1f5f9; padding: 2px 6px; border-radius: 4px;
+      font-size: 11px; color: #475569;
+    }
+    .qr-preview-box {
+      background: white; border: 2px solid #e2e8f0; border-radius: 12px;
+      padding: 16px; text-align: center; margin-top: 12px;
+    }
+    .btn-flow {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 10px 18px; border: none; border-radius: 10px;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      text-decoration: none; font-family: 'Noto Sans KR', sans-serif;
+      transition: all .2s;
+    }
+    .btn-blue    { background: #1e3a8a; color: white; }
+    .btn-purple  { background: #7c3aed; color: white; }
+    .btn-green   { background: #16a34a; color: white; }
+    .btn-outline { background: white; color: #1e3a8a; border: 2px solid #1e3a8a; }
+    .btn-flow:hover { opacity: .85; transform: translateY(-1px); }
+
+    .flow-demo {
+      background: #f8fafc; border-radius: 12px; padding: 16px 18px; margin-top: 8px;
+      font-size: 12px; color: #475569; line-height: 2;
+    }
+    .flow-arrow { color: #94a3b8; margin: 0 4px; }
+
+    /* 빠른 QR 생성기 */
+    .quick-gen { background: white; border: 1.5px solid #bfdbfe; border-radius: 14px; padding: 20px; }
+    .quick-gen h3 { font-size: 15px; font-weight: 800; color: #1e293b; margin-bottom: 14px; }
+    #testQrBox { margin-top: 12px; display: flex; justify-content: center; }
+    #testQrUrl {
+      font-size: 10px; color: #94a3b8; word-break: break-all;
+      padding: 6px 8px; background: #f8fafc; border-radius: 6px; margin-top: 8px;
+    }
+    .notice {
+      background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px;
+      padding: 12px 14px; font-size: 12px; color: #92400e; line-height: 1.8;
+    }
+    .notice strong { color: #c2410c; }
+    .url-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: #dbeafe; color: #1d4ed8; padding: 3px 8px;
+      border-radius: 6px; font-size: 12px; font-weight: 600;
+      text-decoration: none;
+    }
+    .url-tag:hover { background: #bfdbfe; }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon"><span>🏫</span></div>
+      <div><div class="logo-text">성남여성인력개발센터</div><div class="logo-sub">출결관리시스템</div></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">메인</div>
+      <a href="index.html" class="nav-item"><i class="fa fa-home"></i> 대시보드</a>
+      <a href="courses.html" class="nav-item"><i class="fa fa-book"></i> 과정 관리</a>
+      <a href="participants.html" class="nav-item"><i class="fa fa-users"></i> 참여자 관리</a>
+      <div class="nav-section">출결</div>
+      <a href="qr-admin.html" class="nav-item"><i class="fa fa-qrcode"></i> QR 코드 발급</a>
+      <a href="attendance.html" class="nav-item"><i class="fa fa-calendar-check"></i> 출결 현황</a>
+      <div class="nav-section">테스트</div>
+      <a href="qr-test.html" class="nav-item active"><i class="fa fa-flask"></i> QR 출결 테스트</a>
+      <div class="nav-section">보고서</div>
+      <a href="report.html" class="nav-item"><i class="fa fa-chart-bar"></i> 리포트</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="sidebarUser" style="margin-bottom:8px;font-weight:600;"></div>
+      <a href="#" onclick="doLogout()" style="color:rgba(255,255,255,.6);font-size:11px;"><i class="fa fa-sign-out-alt"></i> 로그아웃</a>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <header class="top-header">
+      <span class="page-title"><i class="fa fa-flask" style="color:#7c3aed;"></i> QR 출결 테스트</span>
+      <div class="header-actions">
+        <a href="qr-admin.html" class="btn btn-primary"><i class="fa fa-qrcode"></i> QR 관리 페이지</a>
+      </div>
+    </header>
+
+    <main class="page-body fade-in">
+
+      <!-- 히어로 -->
+      <div class="test-hero">
+        <div class="badge-test"><i class="fa fa-flask"></i> TEST MODE</div>
+        <h2>📱 핸드폰 카메라 QR 출결 테스트</h2>
+        <p>
+          실제 운영 전 QR 출결 흐름 전체를 테스트할 수 있습니다.<br/>
+          <strong>?test=1</strong> 파라미터를 사용하면 GPS·날짜 검증이 비활성화되어 언제 어디서나 테스트 가능합니다.
+        </p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+
+        <!-- 왼쪽: 단계별 가이드 -->
+        <div>
+          <div class="card">
+            <div class="card-header">
+              <i class="fa fa-list-check" style="color:#1e3a8a;"></i>
+              <h3>테스트 단계별 가이드</h3>
+            </div>
+            <div class="card-body">
+              <div class="steps">
+                <div class="step-item">
+                  <div class="step-num">1</div>
+                  <div class="step-content">
+                    <h4>과정 등록</h4>
+                    <p>
+                      <a href="courses.html#new">과정 관리</a> → 새 과정 추가<br/>
+                      상태: <code>운영중</code> / 오늘 날짜 포함 기간 설정
+                    </p>
+                  </div>
+                </div>
+                <div class="step-item">
+                  <div class="step-num">2</div>
+                  <div class="step-content">
+                    <h4>참여자 등록 + 과정 연결</h4>
+                    <p>
+                      <a href="participants.html">참여자 관리</a> → 새 참여자 추가<br/>
+                      이름·생년월일 입력 후 <strong>과정 탭</strong>에서 위 과정 수강 등록
+                    </p>
+                  </div>
+                </div>
+                <div class="step-item">
+                  <div class="step-num">3</div>
+                  <div class="step-content">
+                    <h4>QR 코드 생성 (관리자)</h4>
+                    <p>
+                      <a href="qr-admin.html">QR 코드 발급</a> → 과정·세션 선택 후 생성<br/>
+                      <code>URL 복사</code> 버튼으로 링크 획득
+                    </p>
+                  </div>
+                </div>
+                <div class="step-item">
+                  <div class="step-num">4</div>
+                  <div class="step-content">
+                    <h4>참여자 로그인 (핸드폰)</h4>
+                    <p>
+                      <a href="login.html?tab=participant" target="_blank">login.html?tab=participant</a> 접속<br/>
+                      이름 + 생년월일 입력 → QR 출결 화면으로 이동
+                    </p>
+                  </div>
+                </div>
+                <div class="step-item">
+                  <div class="step-num">5</div>
+                  <div class="step-content">
+                    <h4>QR 스캔 → 입실</h4>
+                    <p>
+                      카메라 시작 → QR 코드 스캔<br/>
+                      또는 <strong>직접 입력</strong> 탭에서 URL 붙여넣기<br/>
+                      ✅ 입실 완료 메시지 확인
+                    </p>
+                  </div>
+                </div>
+                <div class="step-item">
+                  <div class="step-num">6</div>
+                  <div class="step-content">
+                    <h4>QR 재스캔 → 퇴실</h4>
+                    <p>
+                      같은 QR 코드를 다시 스캔<br/>
+                      ✅ 퇴실 완료 + 최종 상태코드 (○/◎/▲ 등) 확인
+                    </p>
+                  </div>
+                </div>
+                <div class="step-item">
+                  <div class="step-num">7</div>
+                  <div class="step-content">
+                    <h4>결과 확인</h4>
+                    <p>
+                      <a href="attendance.html">출결 현황</a>에서 상태코드 확인<br/>
+                      <a href="qr-admin.html">QR 관리</a>의 오늘 출결 이벤트 확인
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 오른쪽: 빠른 링크 + QR 생성기 -->
+        <div style="display:flex;flex-direction:column;gap:16px;">
+
+          <!-- 빠른 접속 링크 -->
+          <div class="card">
+            <div class="card-header">
+              <i class="fa fa-link" style="color:#7c3aed;"></i>
+              <h3>빠른 접속 링크</h3>
+            </div>
+            <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
+              <div style="font-size:12px;color:#64748b;margin-bottom:4px;">
+                아래 링크를 핸드폰으로 접속하거나 QR로 공유하세요.
+              </div>
+
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:#1e293b;">📱 참여자 로그인</div>
+                  <div style="font-size:10px;color:#94a3b8;margin-top:2px;">이름+생년월일 입력</div>
+                </div>
+                <div style="display:flex;gap:6px;">
+                  <a href="login.html?tab=participant" target="_blank" class="btn-flow btn-blue" style="font-size:11px;padding:7px 12px;">
+                    <i class="fa fa-external-link"></i> 열기
+                  </a>
+                  <button onclick="genMiniQR('login')" class="btn-flow btn-outline" style="font-size:11px;padding:7px 12px;">
+                    <i class="fa fa-qrcode"></i> QR
+                  </button>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:#1e293b;">🧪 테스트 모드 출결</div>
+                  <div style="font-size:10px;color:#94a3b8;margin-top:2px;">GPS·날짜 검증 없음</div>
+                </div>
+                <div style="display:flex;gap:6px;">
+                  <a href="qr-check.html?test=1" target="_blank" class="btn-flow btn-purple" style="font-size:11px;padding:7px 12px;">
+                    <i class="fa fa-external-link"></i> 열기
+                  </a>
+                  <button onclick="genMiniQR('qrcheck')" class="btn-flow btn-outline" style="font-size:11px;padding:7px 12px;">
+                    <i class="fa fa-qrcode"></i> QR
+                  </button>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;">
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:#1e293b;">🖥️ QR 코드 발급</div>
+                  <div style="font-size:10px;color:#94a3b8;margin-top:2px;">관리자용 QR 생성 화면</div>
+                </div>
+                <a href="qr-admin.html" class="btn-flow btn-green" style="font-size:11px;padding:7px 12px;">
+                  <i class="fa fa-external-link"></i> 열기
+                </a>
+              </div>
+
+              <!-- 미니 QR 표시 -->
+              <div id="miniQrWrap" style="display:none;text-align:center;padding:12px;background:#fff;border:1.5px solid #bfdbfe;border-radius:10px;">
+                <div id="miniQrTitle" style="font-size:11px;font-weight:700;color:#1e3a8a;margin-bottom:10px;"></div>
+                <div id="miniQrBox"></div>
+                <div id="miniQrUrlText" style="font-size:10px;color:#94a3b8;margin-top:8px;word-break:break-all;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 상태코드 안내 -->
+          <div class="card">
+            <div class="card-header">
+              <i class="fa fa-circle-info" style="color:#1e3a8a;"></i>
+              <h3>출결 상태코드 안내</h3>
+            </div>
+            <div class="card-body">
+              <table style="width:100%;font-size:12px;border-collapse:collapse;">
+                <tbody>
+                  <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:8px 6px;"><span style="font-size:18px;font-weight:900;color:#16a34a;">○</span></td>
+                    <td style="font-weight:700;color:#1e293b;padding:8px 6px;">출석</td>
+                    <td style="color:#64748b;padding:8px 6px;">정상 입·퇴실 (인정률 ≥ 50%)</td>
+                  </tr>
+                  <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:8px 6px;"><span style="font-size:18px;font-weight:900;color:#d97706;">◎</span></td>
+                    <td style="font-weight:700;color:#1e293b;padding:8px 6px;">지각</td>
+                    <td style="color:#64748b;padding:8px 6px;">입실 지각 (유예 10분 초과)</td>
+                  </tr>
+                  <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:8px 6px;"><span style="font-size:18px;font-weight:900;color:#ea580c;">▲</span></td>
+                    <td style="font-weight:700;color:#1e293b;padding:8px 6px;">조퇴</td>
+                    <td style="color:#64748b;padding:8px 6px;">조기 퇴실 (유예 10분 초과)</td>
+                  </tr>
+                  <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:8px 6px;"><span style="font-size:18px;font-weight:900;color:#dc2626;">◎▲</span></td>
+                    <td style="font-weight:700;color:#1e293b;padding:8px 6px;">지각+조퇴</td>
+                    <td style="color:#64748b;padding:8px 6px;">지각 및 조퇴 모두 해당</td>
+                  </tr>
+                  <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:8px 6px;"><span style="font-size:18px;font-weight:900;color:#dc2626;">X</span></td>
+                    <td style="font-weight:700;color:#1e293b;padding:8px 6px;">결석</td>
+                    <td style="color:#64748b;padding:8px 6px;">인정률 50% 미만</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 6px;"><span style="font-size:18px;font-weight:900;color:#94a3b8;">?</span></td>
+                    <td style="font-weight:700;color:#1e293b;padding:8px 6px;">미완료</td>
+                    <td style="color:#64748b;padding:8px 6px;">입실만 기록, 퇴실 미처리</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 주의사항 -->
+          <div class="notice">
+            <strong>⚠️ 실제 운영 시 주의사항</strong><br/>
+            • 실제 운영에서는 <code>?test=1</code> 없이 접속하면 GPS 위치 검증이 활성화됩니다.<br/>
+            • 센터 위치(위도/경도/반경)는 <a href="settings.html">시스템 설정</a>에서 변경하세요.<br/>
+            • QR 코드는 30~60초마다 자동 갱신됩니다 (보안).<br/>
+            • 참여자가 수강 등록되지 않은 과정의 QR은 처리되지 않습니다.
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 전체 흐름 다이어그램 -->
+      <div class="card" style="margin-top:20px;">
+        <div class="card-header">
+          <i class="fa fa-diagram-project" style="color:#1e3a8a;"></i>
+          <h3>전체 출결 처리 흐름</h3>
+        </div>
+        <div class="card-body">
+          <div class="flow-demo">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;">
+              <span style="background:#dbeafe;color:#1e3a8a;padding:5px 12px;border-radius:20px;font-weight:700;">관리자</span>
+              <span class="flow-arrow">→</span>
+              <span style="background:#f0fdf4;color:#16a34a;padding:5px 12px;border-radius:20px;font-weight:700;">QR 생성 (qr-admin.html)</span>
+              <span class="flow-arrow">→</span>
+              <span style="background:#ede9fe;color:#7c3aed;padding:5px 12px;border-radius:20px;font-weight:700;">QR 화면 표시 (모니터/프로젝터)</span>
+            </div>
+            <div style="margin:10px 0;border-left:2px solid #e2e8f0;padding-left:12px;margin-left:20px;color:#94a3b8;">↓ 자동 30~60초 갱신</div>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;">
+              <span style="background:#fef3c7;color:#d97706;padding:5px 12px;border-radius:20px;font-weight:700;">참여자</span>
+              <span class="flow-arrow">→</span>
+              <span style="background:#f0fdf4;color:#16a34a;padding:5px 12px;border-radius:20px;font-weight:700;">로그인 (이름+생년월일)</span>
+              <span class="flow-arrow">→</span>
+              <span style="background:#f0fdf4;color:#16a34a;padding:5px 12px;border-radius:20px;font-weight:700;">카메라로 QR 스캔</span>
+              <span class="flow-arrow">→</span>
+              <span style="background:#dcfce7;color:#16a34a;padding:5px 12px;border-radius:20px;font-weight:700;">✅ 입실 기록</span>
+            </div>
+            <div style="margin:10px 0 10px 200px;border-left:2px solid #e2e8f0;padding-left:12px;color:#94a3b8;">↓ 수업 종료 후</div>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;margin-left:200px;">
+              <span style="background:#fef3c7;color:#d97706;padding:5px 12px;border-radius:20px;font-weight:700;">참여자</span>
+              <span class="flow-arrow">→</span>
+              <span style="background:#f0fdf4;color:#16a34a;padding:5px 12px;border-radius:20px;font-weight:700;">QR 재스캔</span>
+              <span class="flow-arrow">→</span>
+              <span style="background:#dcfce7;color:#16a34a;padding:5px 12px;border-radius:20px;font-weight:700;">✅ 퇴실 + 상태코드 결정</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script>
+const adminSession = requireAuth();
+if (!adminSession) throw new Error();
+document.getElementById('sidebarUser').textContent = `${adminSession.name} (관리자)`;
+
+function doLogout() {
+  if (confirm('로그아웃?')) { clearAuthSession(); window.location.href = 'login.html'; }
+}
+
+// 미니 QR 코드 생성
+let miniQrInstance = null;
+function genMiniQR(type) {
+  const base = window.location.origin + window.location.pathname.replace('qr-test.html', '');
+  const urls = {
+    login:   base + 'login.html?tab=participant',
+    qrcheck: base + 'qr-check.html?test=1'
+  };
+  const titles = {
+    login:   '📱 참여자 로그인 페이지',
+    qrcheck: '🧪 테스트 모드 QR 출결 페이지'
+  };
+
+  const url  = urls[type];
+  const wrap = document.getElementById('miniQrWrap');
+  const box  = document.getElementById('miniQrBox');
+
+  wrap.style.display = 'block';
+  document.getElementById('miniQrTitle').textContent = titles[type];
+  document.getElementById('miniQrUrlText').textContent = url;
+
+  box.innerHTML = '';
+  new QRCode(box, {
+    text: url, width: 160, height: 160,
+    colorDark: '#1e3a8a', colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+</script>
+</body>
+</html>
